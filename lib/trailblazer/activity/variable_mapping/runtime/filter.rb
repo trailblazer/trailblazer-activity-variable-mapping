@@ -2,13 +2,15 @@ module Trailblazer
   class Activity
     module VariableMapping
       module Runtime
-        class Filter
+        class Filter < Struct.new(:read_name, :write_name)
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, write_name:, adds: [])
+          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [])
+            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
+
             pipe_steps = [
               [:invoke_provider, *args_for_provider], # works on flow_options[:application_ctx]
-              [:add_value_to_aggregate, Filter.method(:add_value_to_aggregate)],
+              [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
             ]
 
             pipe = Circuit::Builder.Pipeline(
@@ -18,40 +20,36 @@ module Trailblazer
             pipe = Circuit::Adds.(pipe, *adds)
 
             Circuit::Node::Scoped[:"in.#{write_name}", pipe, Circuit::Processor,
-              # merge_to_lib_ctx: {aggregate: {}} # this is done once per input pipe and automatically creates a fresh {lib_ctx[:aggregate]} hash for us!
-              merge_to_lib_ctx: {write_name: write_name}, # FIXME: currently, only #wrap_value_with_hash needs this, so its not fully clean.
+              merge_to_lib_ctx: {exec_context: filter_exec_context},
               copy_to_outer_ctx: [:aggregate],
             ]
           end
 
-          def self.add_value_to_aggregate(lib_ctx, flow_options, signal, value:, aggregate:, **)
+          def add_value_to_aggregate(lib_ctx, flow_options, signal, value:, aggregate:, **)
             lib_ctx[:aggregate] = aggregate.merge(value)
 
             return lib_ctx, flow_options, signal
           end
 
-          def self.wrap_value_with_hash(lib_ctx, flow_options, signal, value:, write_name:, **)
+          def wrap_value_with_hash(lib_ctx, flow_options, signal, value:, **)
             lib_ctx[:value] = {write_name => value}
 
             return lib_ctx, flow_options, signal
           end
 
           module Build
-            WRAP_VALUE_WITH_HASH = [Trailblazer::Circuit::Node[:wrap_value_with_hash, Filter.method(:wrap_value_with_hash), Circuit::Task::Adapter::LibInterface], :after, :invoke_provider]
+            WRAP_VALUE_WITH_HASH = [Trailblazer::Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
+          end
+
+          # DISCUSS: should we keep the following methods in a subclass of {Filter}?
+
+          # Grab @variable_name from {ctx}.
+          # Note that this is called with the StepInterface, since we want to read from application_ctx.
+          def read_variable_from_application_ctx(ctx, **)
+            return ctx[read_name]
           end
 
           module Provider
-            class ReadVariableFromApplicationCtx
-              def initialize(variable_name:) # TODO: what if one Filter was one instance and we always call instance methods on it, where we hold write_name, read_name and don't need to pass that around?
-                @variable_name = variable_name
-              end
-
-              # Grab @variable_name from {ctx}.
-              # Note that this is called with the StepInterface, since we want to read from application_ctx.
-              def call(ctx, **)
-                return ctx[@variable_name]
-              end
-            end
           end
 
           # Filter

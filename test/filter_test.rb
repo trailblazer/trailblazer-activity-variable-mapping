@@ -9,7 +9,8 @@ class FilterTest < Minitest::Spec
 
   it "read a variable from the {application_ctx}, like In() => [:params]" do
     my_node = Filter.build_node(
-      args_for_provider: [Filter::Provider::ReadVariableFromApplicationCtx.new(variable_name: :slug), StepInterface],
+      args_for_provider: [:read_variable_from_application_ctx, StepInterface::InstanceMethod],
+      read_name: :slug,
       write_name: :my_slug,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
     )
@@ -27,6 +28,7 @@ class FilterTest < Minitest::Spec
     my_node = Filter.build_node(
       args_for_provider: [my_input_provider, StepInterface],
       write_name: :my_slug,
+      read_name: nil,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
     )
 
@@ -46,6 +48,7 @@ class FilterTest < Minitest::Spec
 
     my_node = Filter.build_node(
       args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}, copy_to_outer_ctx: [:value]],
+      read_name: nil,
       write_name: :my_slug,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
     )
@@ -62,7 +65,8 @@ class FilterTest < Minitest::Spec
 
     my_node = Filter.build_node(
       args_for_provider: [my_input_provider, StepInterface],
-      write_name: :FIXME, # FIXME.
+      write_name: nil, # FIXME.
+      read_name: nil,
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
