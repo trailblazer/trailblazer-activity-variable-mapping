@@ -3,18 +3,20 @@ module Trailblazer
     module VariableMapping
       module Runtime
         class Filter < Struct.new(:read_name, :write_name)
+          DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [])
-            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
-
-            pipe_steps = [
+          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [], builder: Circuit::Builder::Pipeline, steps: nil)
+            steps ||= [ # FIXME: better defaulting, please, not very obvious.
               [:invoke_provider, *args_for_provider], # works on flow_options[:application_ctx]
               [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
             ]
 
-            pipe = Circuit::Builder.Pipeline(
-              *pipe_steps
+            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
+
+            # usually results in Circuit::Build.Pipeline(...)
+            pipe = builder.(
+              *steps
             )# FIXME: make me a "template" that is created once at compile-time.
 
             pipe = Circuit::Adds.(pipe, *adds)
@@ -26,39 +28,18 @@ module Trailblazer
           end
 
           class Conditioned < Filter
-            def self.build_node(args_for_provider:, write_name:, read_name:)
-              filter_exec_context = Filter[read_name, write_name]
-
+            def self.build_node(args_for_provider:, **options)
               circuit_steps = [
-                [
-                  [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod],
-                  {nil => :invoke_provider, Left => nil}
-                ],
-                [
-                  [:invoke_provider, *args_for_provider], # extract a value
-                  {nil => :wrap_value_with_hash}
-                ],
-                [
-                  [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod],
-                  {nil => :add_value_to_aggregate}
-                ],
-                [
-                  [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
-                  {}
-                ]
+                [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
+                  connections: {nil => :invoke_provider, Left => nil}], # Left means terminate.
+                [:invoke_provider, *args_for_provider, # extract a value
+                  connections: {nil => :wrap_value_with_hash}],
+                [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod,
+                  connections: {nil => :add_value_to_aggregate}],
+                [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod] # terminus.
               ]
 
-              # FIXME: this is all copied from Filter.build_node
-              pipe = Circuit::Builder.Circuit(
-                *circuit_steps
-              )# FIXME: make me a "template" that is created once at compile-time.
-
-              # pipe = Circuit::Adds.(pipe, *adds)
-
-              Circuit::Node::Scoped[:"in.#{write_name}", pipe, Circuit::Processor,
-                merge_to_lib_ctx: {exec_context: filter_exec_context},
-                copy_to_outer_ctx: [:aggregate],
-              ]
+              super(args_for_provider: args_for_provider, **options, steps: circuit_steps, builder: Circuit::Builder::Circuit)
             end
           end
 
