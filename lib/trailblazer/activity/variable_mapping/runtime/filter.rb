@@ -25,6 +25,43 @@ module Trailblazer
             ]
           end
 
+          class Conditioned < Filter
+            def self.build_node(args_for_provider:, write_name:, read_name:)
+              filter_exec_context = Filter[read_name, write_name]
+
+              circuit_steps = [
+                [
+                  [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod],
+                  {nil => :invoke_provider, Left => nil}
+                ],
+                [
+                  [:invoke_provider, *args_for_provider], # extract a value
+                  {nil => :wrap_value_with_hash}
+                ],
+                [
+                  [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod],
+                  {nil => :add_value_to_aggregate}
+                ],
+                [
+                  [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
+                  {}
+                ]
+              ]
+
+              # FIXME: this is all copied from Filter.build_node
+              pipe = Circuit::Builder.Circuit(
+                *circuit_steps
+              )# FIXME: make me a "template" that is created once at compile-time.
+
+              # pipe = Circuit::Adds.(pipe, *adds)
+
+              Circuit::Node::Scoped[:"in.#{write_name}", pipe, Circuit::Processor,
+                merge_to_lib_ctx: {exec_context: filter_exec_context},
+                copy_to_outer_ctx: [:aggregate],
+              ]
+            end
+          end
+
           def add_value_to_aggregate(lib_ctx, flow_options, signal, value:, aggregate:, **)
             lib_ctx[:aggregate] = aggregate.merge(value)
 
@@ -37,7 +74,7 @@ module Trailblazer
             return lib_ctx, flow_options, signal
           end
 
-          module Build
+          module Build # TODO: rename to Feature.
             WRAP_VALUE_WITH_HASH = [Trailblazer::Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
@@ -49,17 +86,12 @@ module Trailblazer
             return ctx[read_name]
           end
 
-          module Provider
-          end
+          def variable_present_in_application_ctx?(lib_ctx, flow_options, signal, **)
+            application_ctx = flow_options.fetch(:application_ctx) # FIXME: redundant with Adapter::StepInterface.
 
-          # Filter
-          # FIXME: old signature here
-          class VariablePresent #< VariableFromCtx
-            # Grab @variable_name from {ctx} if it's there.
-            def call(ctx, flow_options, _, **) # Circuit-step interface
-              # raise
-              return ctx, flow_options, ctx.key?(@variable_name)
-            end
+            signal = application_ctx.key?(read_name) ? signal : Activity::Left
+
+            return lib_ctx, flow_options, signal
           end
         end # Filter
       end

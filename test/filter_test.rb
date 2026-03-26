@@ -7,7 +7,7 @@ class FilterTest < Minitest::Spec
 
   Filter = Trailblazer::Activity::VariableMapping::Runtime::Filter
 
-  it "read a variable from the {application_ctx}, like In() => [:params]" do
+  it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
     my_node = Filter.build_node(
       args_for_provider: [:read_variable_from_application_ctx, StepInterface::InstanceMethod],
       read_name: :slug,
@@ -75,4 +75,36 @@ class FilterTest < Minitest::Spec
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
     assert_equal flow_options, original_flow_options
   end
+
+
+
+  describe "Inject" do
+    it "writes value to aggregate if it's present" do
+      my_node = Filter::Conditioned.build_node(
+        args_for_provider: [:read_variable_from_application_ctx, StepInterface::InstanceMethod],
+        write_name: :slug,
+        read_name: :slug,
+      )
+
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+        **filter_lib_ctx_options
+
+      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
+      assert_equal flow_options, original_flow_options
+
+      # :slug is absent, we don't set anything.
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {id: 1}}.freeze,
+        **filter_lib_ctx_options,
+        terminus: Trailblazer::Activity::Left
+
+      assert_equal lib_ctx, {aggregate: {}} # pristine aggregate because of no {:slug} anywhere.
+      assert_equal flow_options, original_flow_options
+    end
+  end
+end
+# FIXME: move me to {activity}.
+module Trailblazer
+    class Activity
+      Left = Class.new
+    end
 end
