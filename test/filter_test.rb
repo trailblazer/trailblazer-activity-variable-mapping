@@ -79,9 +79,9 @@ class FilterTest < Minitest::Spec
 
 
   describe "Inject" do
-    it "writes value to aggregate if it's present" do
+    it "writes value to aggregate if it's present (Conditioned)" do
       my_node = Filter::Conditioned.build_node(
-        args_for_provider: [:read_variable_from_application_ctx, StepInterface::InstanceMethod],
+        args_for_provider: nil,
         write_name: :slug,
         read_name: :slug,
       )
@@ -100,6 +100,33 @@ class FilterTest < Minitest::Spec
       assert_equal lib_ctx, {aggregate: {}} # pristine aggregate because of no {:slug} anywhere.
       assert_equal flow_options, original_flow_options
     end
+  end
+
+  it "defaults value if absent, and reads value otherwise (Defaulted)" do
+    my_provider_for_default = ->(ctx, params:, **) { params[:id] }
+
+    my_node = Filter::Defaulted.build_node(default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
+      args_for_provider: nil # FIXME: remove!
+    )
+
+
+    my_ctx = {global_id: 1}
+    # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
+    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+      flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
+        **filter_lib_ctx_options,
+        terminus: nil
+
+    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}}
+
+    my_ctx = {params: {id: 2}}
+    # in this run, we let the defaulting logic kick in.
+    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+      flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
+        **filter_lib_ctx_options,
+        terminus: nil
+
+    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}}
   end
 end
 # FIXME: move me to {activity}.
