@@ -33,6 +33,14 @@ module Trailblazer
 
           return lib_ctx, flow_options, signal
         end
+
+          # Lib interface.
+  def save_original_application_ctx(lib_ctx, flow_options, signal, **)
+    # DISCUSS: do we need this?
+    lib_ctx[:original_application_ctx] = flow_options[:application_ctx] # the "outer ctx".
+
+    return lib_ctx, flow_options, signal
+  end
       end
     end
   end

@@ -9,7 +9,7 @@ class FilterTest < Minitest::Spec
 
   it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
     my_node = Filter.build_node(
-      args_for_provider: [:read_variable_from_application_ctx, StepInterface::InstanceMethod],
+      args_for_provider: [:read_variable_from_application_ctx],
       read_name: :slug,
       write_name: :my_slug,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
@@ -26,7 +26,7 @@ class FilterTest < Minitest::Spec
     my_input_provider = ->(ctx, slug:, **) { slug.upcase }
 
     my_node = Filter.build_node(
-      args_for_provider: [my_input_provider, StepInterface],
+      args_for_provider: [my_input_provider],
       write_name: :my_slug,
       read_name: nil,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
@@ -47,7 +47,7 @@ class FilterTest < Minitest::Spec
     end.new
 
     my_node = Filter.build_node(
-      args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}, copy_to_outer_ctx: [:value]],
+      args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}],
       read_name: nil,
       write_name: :my_slug,
       adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
@@ -76,12 +76,53 @@ class FilterTest < Minitest::Spec
     assert_equal flow_options, original_flow_options
   end
 
+  describe "Out" do
+    it "Out(pass_outer_ctx: true)" do
+      my_input_provider = ->(ctx, outer_ctx:, **kws) { [outer_ctx[:params][:id], kws] }
 
+      my_step_pipe = Trailblazer::Circuit::Builder.Pipeline( # in this pipe, we only have {target_ctx: app_ctx} and maybe exec_context?
+        [:set_target_ctx, Filter.method(:set_target_ctx)],
+        [:merge_outer_ctx, Filter.method(:merge_outer_ctx)],
+        [:invoke_provider, my_input_provider, StepInterface]
+      )
+
+      my_step_interface_node = Trailblazer::Circuit::Node::Scoped[:invoke_provider_with_outer_ctx, my_step_pipe, Trailblazer::Circuit::Processor,
+        copy_to_outer_ctx: [:value],
+      ]
+
+      my_node = Filter.build_node(
+        args_for_provider: [node: my_step_interface_node],
+        write_name: :my_slug,
+        read_name: nil,
+        adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+      )
+
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        **filter_lib_ctx_options,
+        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
+        flow_options: {application_ctx: {bogus: true, slug: "0x666"}} # this is the ctx produced by the call_task.
+
+      assert_equal lib_ctx, {
+        aggregate: {
+          :my_slug => [
+            1,
+            { # the kwargs we see in the user provider:
+              bogus: true,
+              slug: "0x666",
+            }
+          ],
+        },
+        original_application_ctx: {:params=>{:id=>1}}
+
+      }
+      assert_equal flow_options, {application_ctx: {bogus: true, slug: "0x666"}}
+    end
+  end
 
   describe "Inject" do
     it "writes value to aggregate if it's present (Conditioned)" do
       my_node = Filter::Conditioned.build_node(
-        args_for_provider: nil,
+        args_for_provider: [nil], # FIXME: we don't need this here.
         write_name: :slug,
         read_name: :slug,
       )
@@ -106,7 +147,7 @@ class FilterTest < Minitest::Spec
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
     my_node = Filter::Defaulted.build_node(default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
-      args_for_provider: nil # FIXME: remove!
+      args_for_provider: [nil] # FIXME: remove!
     )
 
 

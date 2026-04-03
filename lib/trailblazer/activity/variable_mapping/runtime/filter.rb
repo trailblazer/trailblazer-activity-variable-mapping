@@ -3,12 +3,21 @@ module Trailblazer
     module VariableMapping
       module Runtime
         class Filter < Struct.new(:read_name, :write_name)
-          DEFAULT_STEPS =
+          # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
           def self.build_node(args_for_provider:, read_name:, write_name:, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, **options)
+            provider_with_step_interface = args_for_provider[0]
+            options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
+# TODO: should set_target_ctx be done only once per entire in/out pipe?
+            provider_node = Activity::Step.build(provider_with_step_interface,
+              copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
+              **options_for_provider_node,
+              binary: false
+            )
+
             steps ||= [ # FIXME: better defaulting, please, not very obvious.
-              [:invoke_provider, *args_for_provider], # works on flow_options[:application_ctx]
+              [:invoke_provider, node: provider_node],
               [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
             ]
 
@@ -35,12 +44,23 @@ module Trailblazer
             ]
           end
 
+          module Out
+
+          end
+
           class Conditioned < Filter
             def self.build_circuit(**)
+              provider_with_step_interface = :read_variable_from_application_ctx
+
+              provider_node = Activity::Step.build(provider_with_step_interface,
+                copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
+                binary: false
+              )
+
               circuit_steps = [
                 [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
                   connections: {nil => :invoke_provider, Left => nil}], # Left means terminate.
-                [:invoke_provider, :read_variable_from_application_ctx, Circuit::Task::Adapter::StepInterface::InstanceMethod, # extract a value
+                [:invoke_provider, node: provider_node, # extract a value
                   connections: {nil => :wrap_value_with_hash}],
                 [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod,
                   connections: {nil => :add_value_to_aggregate}],
@@ -56,8 +76,14 @@ module Trailblazer
               # FIXME: playing with "inheritance" here
               conditioned_circuit = Conditioned.build_circuit
 
+              default_provider_node = Activity::Step.build(
+                default_provider,
+                copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
+                binary: false
+              )
+
               adds_instruction = [
-                Circuit::Node[:invoke_default_provider, default_provider, Circuit::Task::Adapter::StepInterface],
+                default_provider_node,
                 :after, :variable_present_in_application_ctx?,
                 inbound_signal: Left,
                 outbound_connections: {nil => :wrap_value_with_hash},
@@ -98,26 +124,15 @@ module Trailblazer
 
             return lib_ctx, flow_options, signal
           end
+
+          # FIXME: should we use instance method instead?
+          def self.merge_outer_ctx(lib_ctx, flow_options, signal, target_ctx:, original_application_ctx:, **)
+            target_ctx = target_ctx.merge(outer_ctx: original_application_ctx)
+
+            return lib_ctx.merge(target_ctx: target_ctx), flow_options, signal
+          end
         end # Filter
       end
     end # VariableMapping
   end
 end
-
-          # In() => :my_model_input
-          # my_model_input_pipe = Trailblazer::Activity::Circuit::Builder.Pipeline(
-          #   [
-          #     :invoke_instance_method,
-          #     :my_model_input,
-          #     Trailblazer::Activity::Circuit::Task::Adapter::StepInterface::InstanceMethod,
-          #     {exec_context: Create.new},
-          #     Trailblazer::Activity::Circuit::Node::Scoped,
-          #     {copy_to_outer_ctx: [:value]}
-          #   ],
-          #   [:add_value_to_aggregate, :add_value_to_aggregate],
-          # )
-
-          # more_model_input_pipe = Trailblazer::Activity::Circuit::Builder.Pipeline(
-          #   [:invoke_provider, Create::MoreModelInput, Trailblazer::Activity::Circuit::Task::Adapter::StepInterface], # FIXME: problem here is, we're writing to lib_ctx[:value]
-          #   [:add_value_to_aggregate, :add_value_to_aggregate],
-          # )

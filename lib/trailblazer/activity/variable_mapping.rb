@@ -8,6 +8,7 @@ module Trailblazer
   end
 end
 
+require "trailblazer/activity"
 require "trailblazer/activity/variable_mapping/dsl"
 require "trailblazer/activity/variable_mapping/runtime"
 require "trailblazer/activity/variable_mapping/runtime/filter"
