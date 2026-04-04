@@ -80,22 +80,24 @@ class FilterTest < Minitest::Spec
     it "Out(pass_outer_ctx: true)" do
       my_input_provider = ->(ctx, outer_ctx:, **kws) { [outer_ctx[:params][:id], kws] }
 
-      my_step_pipe = Trailblazer::Circuit::Builder.Pipeline( # in this pipe, we only have {target_ctx: app_ctx} and maybe exec_context?
-        [:set_target_ctx, Filter.method(:set_target_ctx)],
-        [:merge_outer_ctx, Filter.method(:merge_outer_ctx)],
-        [:invoke_provider, my_input_provider, StepInterface]
-      )
-
-      my_step_interface_node = Trailblazer::Circuit::Node::Scoped[:invoke_provider_with_outer_ctx, my_step_pipe, Trailblazer::Circuit::Processor,
-        copy_to_outer_ctx: [:value],
-      ]
+      merge_outer_ctx_block = ->(pipe) do
+        Trailblazer::Circuit::Adds.(pipe,
+          [
+            Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
+            :before, :invoke_provider
+          ]
+        )
+      end
 
       my_node = Filter.build_node(
-        args_for_provider: [node: my_step_interface_node],
+        args_for_provider: [my_input_provider],
         write_name: :my_slug,
         read_name: nil,
-        adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+        adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
+        step_block: merge_outer_ctx_block
       )
+
+      # raise "adds vs step_block?"
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
@@ -169,10 +171,4 @@ class FilterTest < Minitest::Spec
 
     assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}}
   end
-end
-# FIXME: move me to {activity}.
-module Trailblazer
-    class Activity
-      Left = Class.new
-    end
 end
