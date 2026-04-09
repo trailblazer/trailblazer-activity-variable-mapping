@@ -29,8 +29,7 @@ class ComposableTest < Minitest::Spec
   end
 
   it "i want an input pipe that adds variables to the default_ctx" do
-
-    my_input_provider = ->(ctx, slug:, **) { slug.upcase }
+    my_input_provider       = ->(ctx, slug:, **) { slug.upcase }
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
 
@@ -38,29 +37,39 @@ class ComposableTest < Minitest::Spec
     # see #pipe_for_composable_input
     # this vvv should be done by the DSL? yes.
     # i refrain from allowing Adds, we just add the steps in that order.
-    array_of_filters = [
-      Trailblazer::Activity::VariableMapping::Runtime::Filter.build_node(
-        args_for_provider: [my_input_provider],
-        write_name: :my_slug,
-        read_name: nil,
-        adds: [Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
-      ),
-      Trailblazer::Activity::VariableMapping::Runtime::Filter::Defaulted.build_node(
-        default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
-        args_for_provider: [nil] # FIXME: remove!
-      )
-
+    array_of_filter_rows = [
+      [
+        :"in.slug", # DISCUSS: who knows the ID?
+        node: Trailblazer::Activity::VariableMapping::Runtime::Filter.build_node(
+          id: :"in.slug",
+          args_for_provider: [my_input_provider],
+          write_name: :my_slug,
+          read_name: nil,
+          adds: [Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+        ),
+      ],
+      [
+        :"inject.my_global_id(defaulted)",
+        node: Trailblazer::Activity::VariableMapping::Runtime::Filter::Defaulted.build_node(
+          id: :"inject.my_global_id(defaulted)",
+          default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
+          args_for_provider: [nil] # FIXME: remove!
+        )
+      ]
     ]
 
 
     input_node = Trailblazer::Activity::VariableMapping::Build::Input.node_for_filters(
-      array_of_filters,
+      array_of_filter_rows,
       add_default_ctx: true
     )
 
-    pp input_node
+    lib_ctx, flow_options = assert_run input_node, node: true, seq: [],
+      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []}}
 
-    raise "here we go"
+    shadowed, mutable = flow_options[:application_ctx].decompose
+    assert_equal shadowed, original_ctx.merge(my_slug: "0X666", my_global_id: 1)
+    assert_equal mutable, {}
   end
 
   it "DSL.node_for_input, default context without any whitelisting" do

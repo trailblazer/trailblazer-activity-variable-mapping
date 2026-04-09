@@ -9,35 +9,33 @@ module Trailblazer
           #           input_pipe and output_pipe
           #           HOW do we make that customizable so we could add filter circuits or alter them?
 
-          def node_for_filters(ary_of_filters, **options)
-            initial_pipe_ary = initial_input_pipeline_ary(**options)
+          def node_for_filters(ary_of_filter_rows, **options)
+            input_pipeline = pipeline_for(ary_of_filter_rows, **options)
 
-            node_for_input(initial_pipe_ary, ary_of_filters)
+            node_for_input(input_pipeline)
           end
 
-          def node_for_input(initial_ary, ary_of_filters)
-            # raise "remove the dsl logic, pipe_for_composable_input"
-            # input_pipe = pipe_for_composable_input(**kwargs)
-
-            Circuit::Node::Scoped[:"input.node", ary_of_filters, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
+          def node_for_input(pipeline)
+            Circuit::Node::Scoped[:"input.node", pipeline, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
           end
 
           # Adds the default_ctx step as per option {:add_default_ctx}
-          def initial_input_pipeline_ary(add_default_ctx: false)
+          def pipeline_for(ary_of_filter_rows, add_default_ctx: false)
             # No In() or {:input}. Use default ctx, which is the original ctx.
             # When using Inject without In/:input, we also need a {default_input} ctx.
             pipeline_steps = [
+              *ary_of_filter_rows, # filters are place before {input.scope}.
               [:"input.scope", Runtime.method(:build_context)], # last step
             ]
 
             if add_default_ctx
-              pipeline_steps = [default_input_ctx_config] + pipeline_steps
+              pipeline_steps = [default_input_ctx_row, *pipeline_steps]
             end
 
-            pipeline_steps
+            Circuit::Builder.Pipeline(*pipeline_steps)
           end
 
-          def default_input_ctx_config
+          def default_input_ctx_row
             [:"input.default_input", Runtime.method(:default_input_ctx)]
           end
         end # Input

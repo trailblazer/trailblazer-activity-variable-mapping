@@ -6,7 +6,7 @@ module Trailblazer
           # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, step_block: nil, **options)
+          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, step_block: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
@@ -24,7 +24,7 @@ module Trailblazer
 
             pipe = build_circuit(builder: builder, steps: steps, **options)
 
-            create_node_for(pipe, adds: adds, write_name: write_name, read_name: read_name)
+            create_node_for(pipe, adds: adds, write_name: write_name, read_name: read_name, id: id)
           end
 
           def self.build_circuit(builder:, steps:)
@@ -34,13 +34,13 @@ module Trailblazer
             )# FIXME: make me a "template" that is created once at compile-time.
           end
 
-          def self.create_node_for(circuit, adds:, write_name:, read_name:)
+          def self.create_node_for(circuit, adds:, write_name:, read_name:, id:)
             filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
 
             # TODO: make this generic, Adds + building a Node.
             pipe = Circuit::Adds.(circuit, *adds)
 
-            Circuit::Node::Scoped[:"in.#{write_name}", pipe, Circuit::Processor,
+            Circuit::Node::Scoped[id, pipe, Circuit::Processor,
               merge_to_lib_ctx: {exec_context: filter_exec_context},
               copy_to_outer_ctx: [:aggregate],
             ]
