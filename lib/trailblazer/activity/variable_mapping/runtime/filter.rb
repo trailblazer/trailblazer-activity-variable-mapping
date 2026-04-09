@@ -6,7 +6,7 @@ module Trailblazer
           # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name:, write_name:, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, step_block: nil, id:, **options)
+          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, step_block: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
@@ -35,6 +35,7 @@ module Trailblazer
           end
 
           def self.create_node_for(circuit, adds:, write_name:, read_name:, id:)
+            # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
 
             # TODO: make this generic, Adds + building a Node.

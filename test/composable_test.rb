@@ -72,6 +72,27 @@ class ComposableTest < Minitest::Spec
     assert_equal mutable, {}
   end
 
+  it "DSL converts DSL-tuples to Filters" do
+    my_input_provider       = ->(ctx, slug:, **) { slug.upcase }
+    my_provider_for_default = ->(ctx, params:, **) { params[:id] }
+
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL::In() => my_input_provider,
+        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default
+      },
+      add_default_ctx: false # because we got one In()
+    )
+
+    # same test as the one above.
+    lib_ctx, flow_options = assert_run input_node, node: true, seq: [],
+      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []}}
+
+    shadowed, mutable = flow_options[:application_ctx].decompose
+    assert_equal shadowed, original_ctx.merge(my_slug: "0X666", my_global_id: 1)
+    assert_equal mutable, {}
+  end
+
   it "DSL.node_for_input, default context without any whitelisting" do
     input_node = Trailblazer::Activity::VariableMapping::DSL.node_for_input()
 

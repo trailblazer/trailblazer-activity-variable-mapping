@@ -6,47 +6,24 @@ module Trailblazer
       #   Option: Tuple => user filter
       #   Tuple: #<In ...>
       module DSL
-        module_function
 
-        def node_for_input(**kwargs)
-          input_pipe = pipe_for_composable_input(**kwargs)
+        module Input
+          module_function
 
-          Trailblazer::Circuit::Node::Scoped[:"input.node", input_pipe, Trailblazer::Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
-        end
+          def node_for_tuples(tuples, add_default_ctx:) # at this point, we already know if there are In(), or only Inject().
+            # raise tuples.inspect
 
-        # Compute pipeline for In() and Inject().
-        def pipe_for_composable_input(tuples: [], initial_input_pipeline_hash: initial_input_pipeline_hash_for(tuples), **)
-          tuples_adds  = DSL::Tuple.compile_tuples(tuples)  # Compile tuples {In() => ...}  into tw steps.
+            # produce an array of [id, #<Filter>] "rows", they make up the input/output pipe.
+            filter_rows = tuples.flat_map { |left_tuple, right_option| left_tuple.(right_option) }
 
-          initial_pipe = Circuit::Builder.Pipeline(*initial_input_pipeline_hash)
+            pp filter_rows
 
-          Circuit::Adds.(initial_pipe, *in_filters_adds)
-        end
-
-        # initial pipleline depending on whether or not we got any In() filters.
-        def initial_input_pipeline_hash_for(in_filters)
-          is_inject_only = in_filters.find { |k, v| k.is_a?(DSL::In) }.nil?
-
-          initial_input_pipeline_hash(add_default_ctx: is_inject_only)
-        end
-
-        # Adds the default_ctx step as per option {:add_default_ctx}
-        def initial_input_pipeline_hash(add_default_ctx: false)
-          # No In() or {:input}. Use default ctx, which is the original ctx.
-          # When using Inject without In/:input, we also need a {default_input} ctx.
-          pipeline_steps = [
-            [:"input.scope", Runtime.method(:build_context)], # last step
-          ]
-
-          if add_default_ctx
-            pipeline_steps = [default_input_ctx_config] + pipeline_steps
+            Build::Input.node_for_filters(filter_rows, add_default_ctx: add_default_ctx)
           end
 
-          pipeline_steps
-        end
-
-        def default_input_ctx_config
-          [:"input.default_input", Runtime.method(:default_input_ctx)]
+          def self.hash_for_array(ary)
+            ary.collect { |name| [name, name] }.to_h
+          end
         end
 
         def pipe_for_composable_output(out_filters: [], initial_output_pipeline_hash: initial_output_pipeline_hash(add_default_ctx: Array(out_filters).empty?), **)
@@ -76,26 +53,16 @@ module Trailblazer
         # If a user needs to inject their own private iop step they can create this data structure with desired values here.
         # This is also the reason why a lot of options computation such as {:with_outer_ctx} happens here and not in the IO code.
 
-        class Tuple
+        class Tuple # FIXME: Make me a Struct
           def initialize(**options)
             @options = options
           end
 
-          def to_h
-            @options
-          end
+          # def to_h
+          #   @options
+          # end
 
-          def self.compile_tuples(tuples)
-            tuples.flat_map { |left_option, right_option| call_builder(right_option, **left_option.to_h) }
-          end
 
-          # @return [Filter] Filter instance that keeps {name} and {aggregate_step}.
-          # Tuple currently is called with the argument from the right-hand side:
-          #   Inject(:name) => <right_option>
-          # DISCUSS: in OutputTuples, this is called to_a
-          def self.call_builder(right_option, builder:, **options)
-            builder.(right_option, **options)
-          end
         end # TODO: test {:insert_args}
 
         # In, Out and Inject are objects instantiated when using the DSL, for instance {In() => [:model]}.
@@ -106,83 +73,101 @@ module Trailblazer
         #    also, the sooner we complain about a missing or wrong kwarg, the better. Maybe In() should already verify options?
   # raise "could we add, via the DSL in invoke, add an empty In() that doesn't build anything?"
         class In < Tuple
+          def call(right_options) # FIXME: now I'm mixing DSL and building.
+
+            # right-hand is a provider: ->(*) { ... }
+            [build_filter_node_row_for_provider(right_options, **@options)] # @options is usually {read_name: :slug}
+          end
+# raise "even in In, we sometimes don't need write_name etc. also, where do we store those values? In In?"
+          def build_filter_node_row_for_provider(provider, id: :"in.#{provider}", **) # we don't need {write_name} etc here.
+            [
+              id,
+              node: Runtime::Filter.build_node(
+                id: id, # DISCUSS: do we want the ID in da node?
+                args_for_provider: [provider],
+                # adds: [Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+              ),
+            ]
+          end
         end # In
 
         class Out < Tuple
         end # Out
-
-        def self.In(variable_name = nil, builder: Tuple::Left::In::Builder, insert_args: {prepend: "input.scope"}, **left_user_options)
-          In.new(
-            variable_name: variable_name,
-            builder:       builder,
-            insert_args:   insert_args,
-            type:          :In,
-            **left_user_options,
-          )
-        end
-
-        # Builder for a DSL Output() object.
-        def self.Out(variable_name = nil, builder: Tuple::Left::Out::Builder, insert_args: {prepend: "output.merge_with_original"}, **left_user_options)
-          Out.new(
-            variable_name: variable_name,
-            builder:       builder,
-            insert_args:   insert_args,
-            type:          :Out,
-            **left_user_options,
-          )
-        end
-
-        # Used in the DSL by you.
-        # DISCUSS: should we move the options processing and deciding code into the resp. FiltersBuilder?
-        def self.Inject(variable_name = nil, builder: Tuple::Left::Inject::Builder, insert_args: {prepend: "input.scope"}, **left_user_options)
-          Inject.new(
-            variable_name: variable_name,
-            builder:       builder,
-            insert_args:   insert_args,
-            type:          :Inject,
-            **left_user_options,
-          )
-        end
 
         # This class is supposed to hold configuration options for Inject().
         #
         # Inject can be 1. "with condition": only add to aggregate if variable is present in original_ctx.
         #               2. "with condition" and default.
         #               3. override: like 2. with a condition always {false}.
-        class Inject < Tuple
+        class Inject < In # FIXME: now I'm mixing DSL and building
+
+          def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name)
+              raise "eat the adds_instruction"
+            # Inject means, always wrap, always write_name, always read_name
+            super(provider, read_name: read_name, write_name: write_name, id: :"inject.#{provider}",
+
+              adds: [Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+
+              )
+          end
+
         end # Inject
+
+        def self.In(variable_name = nil, tuple_class = In, **left_user_options)
+          tuple_class.new(
+            read_name: variable_name, # DISCUSS: we're storing the variable_name here, in In() we never have one.
+            **left_user_options,
+          )
+        end
+
+        # Builder for a DSL Output() object.
+        def self.Out(variable_name = nil, **left_user_options)
+          In(variable_name, Out, **left_user_options)
+        end
+
+        # Used in the DSL by you.
+        # DISCUSS: should we move the options processing and deciding code into the resp. FiltersBuilder?
+        def self.Inject(variable_name = nil, **left_user_options)
+          In(variable_name, Inject, **left_user_options)
+        end
 
         # require_relative "runtime/filter_step"
         class Tuple
           module Left # FIXME: new implementation, based on Activity::Railway.
             # Utility methods for translating right-hand options and building filters along with ADDS.
             module Builder
-              def self.hash_for_array(ary)
-                ary.collect { |name| [name, name] }.to_h
-              end
 
+
+              # Build a set of filters for "automatic" options such as {:params => :outer_params}.
               def self.build_filter_adds_for_hash(user_hash, **options)
                 user_hash.collect do |from_name, to_name|
                   options_for_build = yield(options, from_name, to_name)
 
-                  circuit_filter = VariableMapping::VariableFromCtx.new(variable_name: from_name)
+                  # raise options_for_build.inspect
+
+                  value_producer = Runtime::Filter::ValueProducer::ReadVariableFromApplicationCtx.new(variable_name: from_name)
+                  raise "and wrap_value_with_hash"
 
                   build_filter_step_adds(
                     **options_for_build,
-                    filter: circuit_filter,
+                    value_producer: value_producer,
                   )
                 end
               end
 
               # build a special activity based on {filter_activity}, add all "remaining" options as instance variables.
-              def self.build_filter_step_adds(filter:, filter_activity:, insert_args:, name:, **options_for_build)
-                runtime_step = Runtime::FilterStep.build(
-                  filter_activity,
+              def self.build_filter_step_adds(value_producer:,
+                # filter_activity:,
+                  insert_args:,
+                  name:, **options_for_build)
+
+                runtime_filter = Runtime::Filter.build_node(
+                  # filter_activity,
                   filter: filter,
                   **options_for_build
                 )
 
-                return [runtime_step, id: name, **insert_args]
+                # return [runtime_filter, id: name, *insert_args]
               end
 
               def self.name_for_filter(name: nil, type:, specifier: [], user_filter: nil, **)
@@ -206,15 +191,15 @@ module Trailblazer
                 end
 
                 # This is options-compiling specific to the left side type.
-                def self.compile_options(right_option, filter_activity: Runtime::FilterStep::MergeVariables, pass_aggregate: false, **options_from_left_option)
+                def self.compile_options(right_option, filter: Runtime::Filter, pass_aggregate: false, **options_from_left_option)
                     block_for_filter_step_build = -> {
                       # step :with_outer_ctx, after: :args_for_filter if with_outer_ctx
                       step :pass_aggregate, after: :args_for_filter if pass_aggregate
                     } # FIXME: redundancy.
 
                     options_from_left_option.merge(
-                      filter_activity:             filter_activity,
-                      block_for_filter_step_build: block_for_filter_step_build,
+                      filter:             filter,
+                      # block_for_filter_step_build: block_for_filter_step_build,
                     )
                 end
 
