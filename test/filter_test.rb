@@ -9,6 +9,7 @@ class FilterTest < Minitest::Spec
 
   it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
     my_node = Filter.build_node(
+      id: nil,
       args_for_provider: [:read_variable_from_application_ctx],
       read_name: :slug,
       write_name: :my_slug,
@@ -26,6 +27,7 @@ class FilterTest < Minitest::Spec
     my_input_provider = ->(ctx, slug:, **) { slug.upcase }
 
     my_node = Filter.build_node(
+      id: nil,
       args_for_provider: [my_input_provider],
       write_name: :my_slug,
       read_name: nil,
@@ -45,8 +47,9 @@ class FilterTest < Minitest::Spec
         slug.upcase
       end
     end.new
-
+# FIXME: remove write_name where it's nil
     my_node = Filter.build_node(
+      id: nil,
       args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}],
       read_name: nil,
       write_name: :my_slug,
@@ -64,6 +67,7 @@ class FilterTest < Minitest::Spec
     my_input_provider = ->(ctx, slug:, **) { {my_slug: slug.upcase} }
 
     my_node = Filter.build_node(
+      id: nil,
       args_for_provider: [my_input_provider, StepInterface],
       write_name: nil, # FIXME.
       read_name: nil,
@@ -80,21 +84,23 @@ class FilterTest < Minitest::Spec
     it "Out(pass_outer_ctx: true)" do
       my_input_provider = ->(ctx, outer_ctx:, **kws) { [outer_ctx[:params][:id], kws] }
 
-      merge_outer_ctx_block = ->(pipe) do
-        Trailblazer::Circuit::Adds.(pipe,
-          [
-            Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
-            :before, :invoke_provider
-          ]
-        )
-      end
-
       my_node = Filter.build_node(
+        id: nil,
         args_for_provider: [my_input_provider],
         write_name: :my_slug,
         read_name: nil,
         adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
-        step_block: merge_outer_ctx_block
+      )
+
+      my_node = Trailblazer::Circuit::Node::Patch.(
+        my_node,
+        [:invoke_provider],
+        adds: [
+          [
+            Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
+            :before, :invoke_provider
+          ]
+        ]
       )
 
       # raise "adds vs step_block?"
@@ -124,6 +130,7 @@ class FilterTest < Minitest::Spec
   describe "Inject" do
     it "writes value to aggregate if it's present (Conditioned)" do
       my_node = Filter::Conditioned.build_node(
+        id: nil,
         args_for_provider: [nil], # FIXME: we don't need this here.
         write_name: :slug,
         read_name: :slug,
@@ -148,7 +155,8 @@ class FilterTest < Minitest::Spec
   it "defaults value if absent, and reads value otherwise (Defaulted)" do
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
-    my_node = Filter::Defaulted.build_node(default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
+    my_node = Filter::Defaulted.build_node(
+      id: nil,default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
       args_for_provider: [nil] # FIXME: remove!
     )
 

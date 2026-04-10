@@ -6,15 +6,14 @@ module Trailblazer
           # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, step_block: nil, id:, **options)
+          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
             provider_node = Activity::Step.build(provider_with_step_interface,
               copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
               **options_for_provider_node,
-              binary: false,
-              &step_block
+              binary: false
             )
 
             steps ||= [ # FIXME: better defaulting, please, not very obvious.
