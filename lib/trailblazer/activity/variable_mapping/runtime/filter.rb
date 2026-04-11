@@ -85,6 +85,7 @@ module Trailblazer
               )
 
               adds_instruction = [
+                :invoke_default_provider,
                 default_provider_node,
                 :after, :variable_present_in_application_ctx?,
                 inbound_signal: Left,
@@ -108,7 +109,7 @@ module Trailblazer
           end
 
           module Build # TODO: rename to Feature.
-            WRAP_VALUE_WITH_HASH = [Trailblazer::Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
+            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Trailblazer::Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
           # DISCUSS: should we keep the following methods in a subclass of {Filter}?

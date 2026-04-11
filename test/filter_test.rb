@@ -89,7 +89,7 @@ class FilterTest < Minitest::Spec
         args_for_provider: [my_input_provider],
         write_name: :my_slug,
         read_name: nil,
-        adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
+        # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
       )
 
       my_node = Trailblazer::Circuit::Node::Patch.(
@@ -97,9 +97,18 @@ class FilterTest < Minitest::Spec
         [:invoke_provider],
         adds: [
           [
+            :merge_outer_ctx,
             Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
             :before, :invoke_provider
           ]
+        ]
+      )
+
+      my_node = Trailblazer::Circuit::Node::Patch.(
+        my_node,
+        [],
+        adds: [
+          Filter::Build::WRAP_VALUE_WITH_HASH
         ]
       )
 
