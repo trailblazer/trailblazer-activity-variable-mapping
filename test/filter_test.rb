@@ -13,7 +13,14 @@ class FilterTest < Minitest::Spec
       args_for_provider: [:read_variable_from_application_ctx],
       read_name: :slug,
       write_name: :my_slug,
-      adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+    )
+
+    my_node = Trailblazer::Circuit::Node::Patch.(
+      my_node,
+      [],
+      adds: [
+        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+      ]
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
@@ -30,8 +37,14 @@ class FilterTest < Minitest::Spec
       id: nil,
       args_for_provider: [my_input_provider],
       write_name: :my_slug,
-      read_name: nil,
-      adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+    )
+
+    my_node = Trailblazer::Circuit::Node::Patch.(
+      my_node,
+      [],
+      adds: [
+        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+      ]
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
@@ -53,7 +66,14 @@ class FilterTest < Minitest::Spec
       args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}],
       read_name: nil,
       write_name: :my_slug,
-      adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+    )
+
+    my_node = Trailblazer::Circuit::Node::Patch.(
+      my_node,
+      [],
+      adds: [
+        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+      ]
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,

@@ -6,7 +6,7 @@ module Trailblazer
           # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, adds: [], builder: Circuit::Builder::Pipeline, steps: nil, id:, **options)
+          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, builder: Circuit::Builder::Pipeline, steps: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
@@ -23,7 +23,7 @@ module Trailblazer
 
             pipe = build_circuit(builder: builder, steps: steps, **options)
 
-            create_node_for(pipe, adds: adds, write_name: write_name, read_name: read_name, id: id)
+            create_node_for(pipe, write_name: write_name, read_name: read_name, id: id)
           end
 
           def self.build_circuit(builder:, steps:)
@@ -33,17 +33,29 @@ module Trailblazer
             )# FIXME: make me a "template" that is created once at compile-time.
           end
 
-          def self.create_node_for(circuit, adds:, write_name:, read_name:, id:)
+          def self.create_node_for(circuit, write_name:, read_name:, id:)
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
 
-            # TODO: make this generic, Adds + building a Node.
-            pipe = Circuit::Adds.(circuit, *adds)
-
-            Circuit::Node::Scoped[id, pipe, Circuit::Processor,
+            Circuit::Node::Scoped[id, circuit, Circuit::Processor,
               merge_to_lib_ctx: {exec_context: filter_exec_context},
               copy_to_outer_ctx: [:aggregate],
             ]
+          end
+
+          module Build
+            # Those builders are also supposed to represent validations, as we're always
+            # building a generic Filter instance, we somewhere need to control read_name etc.
+            # DISCUSS: prototyping here.
+            def self.filter_with_wrap_hash(args_for_provider:, write_name:, read_name:)
+              Filter.build_node(
+                id: nil,
+                args_for_provider: args_for_provider,
+                read_name: read_name, # DISCUSS: do we always need a {read_name}?
+                write_name: write, # when with hash wrap, we always need a {write_name}.
+                adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
+              )
+            end
           end
 
           module Out
