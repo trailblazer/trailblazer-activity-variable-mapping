@@ -74,8 +74,12 @@ module Trailblazer
           def call(right_options) # FIXME: now I'm mixing DSL and building.
 
             if right_options.is_a?(Array)
-              filter_nodes = right_options.collect do |read_name|
-                build_filter_node_row_for_mapping(read_name: read_name, write_name: read_name)
+              right_options = right_options.collect { |read_name| [read_name, read_name] }.to_h
+            end
+
+            if right_options.is_a?(Hash)
+              filter_nodes = right_options.collect do |read_name, write_name|
+                build_filter_node_row_for_mapping(read_name: read_name, write_name: write_name)
               end
 
               return filter_nodes

@@ -81,13 +81,14 @@ class ComposableTest < Minitest::Spec
     assert_equal mutable, {}
   end
 
-  it "DSL converts DSL-tuples to Filters" do
+  it "DSL converts DSL-tuples to Filters via {Input.node_for_tuples}" do
     my_input_provider       = ->(ctx, slug:, **) { {my_slug: slug.upcase} }
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
     input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
       {
         Trailblazer::Activity::VariableMapping::DSL::In() => [:action, :controller],
+        Trailblazer::Activity::VariableMapping::DSL::In() => {:action => :my_action},
 
         Trailblazer::Activity::VariableMapping::DSL::In() => my_input_provider,
         Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default
@@ -105,6 +106,7 @@ class ComposableTest < Minitest::Spec
     shadowed, mutable = flow_options[:application_ctx].decompose
     assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
         controller: Object, action: :create,
+        my_action: :create,
       }
     assert_equal mutable, {}
   end
