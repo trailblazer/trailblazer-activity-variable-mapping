@@ -37,16 +37,26 @@ class ComposableTest < Minitest::Spec
     # see #pipe_for_composable_input
     # this vvv should be done by the DSL? yes.
     # i refrain from allowing Adds, we just add the steps in that order.
+
+    my_input_node = Trailblazer::Activity::VariableMapping::Runtime::Filter.build_node(
+      id: :"in.slug",
+      args_for_provider: [my_input_provider],
+      write_name: :my_slug,
+      read_name: nil,
+      # adds: [Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+    )
+    my_input_node = Trailblazer::Circuit::Node::Patch.(
+      my_input_node,
+      [],
+      adds: [
+        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+      ]
+    )
+
     array_of_filter_rows = [
       [
         :"in.slug", # DISCUSS: who knows the ID?
-        node: Trailblazer::Activity::VariableMapping::Runtime::Filter.build_node(
-          id: :"in.slug",
-          args_for_provider: [my_input_provider],
-          write_name: :my_slug,
-          read_name: nil,
-          adds: [Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
-        ),
+        node: my_input_node,
       ],
       [
         :"inject.my_global_id(defaulted)",
@@ -57,7 +67,6 @@ class ComposableTest < Minitest::Spec
         )
       ]
     ]
-
 
     input_node = Trailblazer::Activity::VariableMapping::Build::Input.node_for_filters(
       array_of_filter_rows,
@@ -73,23 +82,30 @@ class ComposableTest < Minitest::Spec
   end
 
   it "DSL converts DSL-tuples to Filters" do
-    my_input_provider       = ->(ctx, slug:, **) { slug.upcase }
+    my_input_provider       = ->(ctx, slug:, **) { {my_slug: slug.upcase} }
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
     input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
       {
+        Trailblazer::Activity::VariableMapping::DSL::In() => [:action, :controller],
+
         Trailblazer::Activity::VariableMapping::DSL::In() => my_input_provider,
         Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default
       },
       add_default_ctx: false # because we got one In()
     )
 
+
     # same test as the one above.
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: [],
-      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []}}
+    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
+      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: [],
+        controller: Object, action: :create, bogus: true,},
+      }
 
     shadowed, mutable = flow_options[:application_ctx].decompose
-    assert_equal shadowed, original_ctx.merge(my_slug: "0X666", my_global_id: 1)
+    assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
+        controller: Object, action: :create,
+      }
     assert_equal mutable, {}
   end
 

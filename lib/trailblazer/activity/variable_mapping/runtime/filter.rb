@@ -43,21 +43,6 @@ module Trailblazer
             ]
           end
 
-          module Build
-            # Those builders are also supposed to represent validations, as we're always
-            # building a generic Filter instance, we somewhere need to control read_name etc.
-            # DISCUSS: prototyping here.
-            def self.filter_with_wrap_hash(args_for_provider:, write_name:, read_name:)
-              Filter.build_node(
-                id: nil,
-                args_for_provider: args_for_provider,
-                read_name: read_name, # DISCUSS: do we always need a {read_name}?
-                write_name: write, # when with hash wrap, we always need a {write_name}.
-                adds: [Filter::Build::WRAP_VALUE_WITH_HASH]
-              )
-            end
-          end
-
           module Out
 
           end

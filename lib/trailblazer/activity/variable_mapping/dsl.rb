@@ -16,8 +16,6 @@ module Trailblazer
             # produce an array of [id, #<Filter>] "rows", they make up the input/output pipe.
             filter_rows = tuples.flat_map { |left_tuple, right_option| left_tuple.(right_option) }
 
-            pp filter_rows
-
             Build::Input.node_for_filters(filter_rows, add_default_ctx: add_default_ctx)
           end
 
@@ -75,19 +73,49 @@ module Trailblazer
         class In < Tuple
           def call(right_options) # FIXME: now I'm mixing DSL and building.
 
+            if right_options.is_a?(Array)
+              filter_nodes = right_options.collect do |read_name|
+                build_filter_node_row_for_mapping(read_name: read_name, write_name: read_name)
+              end
+
+              return filter_nodes
+            end
+
             # right-hand is a provider: ->(*) { ... }
             [build_filter_node_row_for_provider(right_options, **@options)] # @options is usually {read_name: :slug}
           end
-# raise "even in In, we sometimes don't need write_name etc. also, where do we store those values? In In?"
-          def build_filter_node_row_for_provider(provider, id: :"in.#{provider}", **) # we don't need {write_name} etc here.
+
+          # In() with "callable"/provider never needs hash wrap.
+          def build_filter_node_row_for_provider(provider, id: :"in.#{provider}", **options) # we don't need {write_name} etc here.
             [
               id,
               node: Runtime::Filter.build_node(
                 id: id, # DISCUSS: do we want the ID in da node?
                 args_for_provider: [provider],
-                # adds: [Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+                **options # FIXME: what is this exactly? always :read_name and :write_name?
               ),
             ]
+          end
+
+          # TODO: make [:model, :params] one fast filter.
+          # implement one mapping a la {:model => :model}.
+          def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"in.#{read_name} > #{write_name}")
+            node = Runtime::Filter.build_node(
+              id:                 id,
+              args_for_provider:  [:read_variable_from_application_ctx], # Filter::Runtime#read_variable_from_application_ctx
+              read_name:          read_name,
+              write_name:         write_name,
+            )
+
+            node = Trailblazer::Circuit::Node::Patch.(
+              node,
+              [],
+              adds: [
+                Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+              ]
+            )
+
+            [id, node: node] # for Pipeline().
           end
         end # In
 
@@ -102,13 +130,21 @@ module Trailblazer
         class Inject < In # FIXME: now I'm mixing DSL and building
 
           def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name)
-              raise "eat the adds_instruction"
             # Inject means, always wrap, always write_name, always read_name
-            super(provider, read_name: read_name, write_name: write_name, id: :"inject.#{provider}",
+            id, inject_node_hsh = super(provider, read_name: read_name, write_name: write_name, id: :"inject.#{provider}")
 
-              adds: [Runtime::Filter::Build::WRAP_VALUE_WITH_HASH]
+            inject_node = inject_node_hsh[:node]
 
-              )
+            # Inject provider always means we need hash wrap.
+            inject_node = Trailblazer::Circuit::Node::Patch.(
+              inject_node,
+              [],
+              adds: [
+                Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
+              ]
+            )
+
+            return id, {node: inject_node}
           end
 
         end # Inject
