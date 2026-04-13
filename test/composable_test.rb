@@ -91,7 +91,10 @@ class ComposableTest < Minitest::Spec
         Trailblazer::Activity::VariableMapping::DSL::In() => {:action => :my_action},
 
         Trailblazer::Activity::VariableMapping::DSL::In() => my_input_provider,
-        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default
+        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default,
+        Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
+        # inject with override
+        # Out with pass_outer_ctx
       },
       add_default_ctx: false # because we got one In()
     )
@@ -101,12 +104,28 @@ class ComposableTest < Minitest::Spec
     lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
       flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: [],
         controller: Object, action: :create, bogus: true,},
-      }
+      },
+      terminus: Trailblazer::Activity::Left
 
     shadowed, mutable = flow_options[:application_ctx].decompose
     assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
         controller: Object, action: :create,
         my_action: :create,
+      }
+    assert_equal mutable, {}
+
+  # {:http} is present in input
+    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
+      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: [],
+        controller: Object, action: :create, bogus: true, http: Module},
+      },
+      terminus: nil
+
+    shadowed, mutable = flow_options[:application_ctx].decompose
+    assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
+        controller: Object, action: :create,
+        my_action: :create,
+        http: Module,
       }
     assert_equal mutable, {}
   end

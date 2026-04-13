@@ -132,7 +132,6 @@ module Trailblazer
         #               2. "with condition" and default.
         #               3. override: like 2. with a condition always {false}.
         class Inject < In # FIXME: now I'm mixing DSL and building
-
           def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name)
             # Inject means, always wrap, always write_name, always read_name
             id, inject_node_hsh = super(provider, read_name: read_name, write_name: write_name, id: :"inject.#{provider}")
@@ -149,6 +148,18 @@ module Trailblazer
             )
 
             return id, {node: inject_node}
+          end
+
+          def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"inject.#{read_name} > #{write_name}")
+            node = Runtime::Filter::Conditioned.build_node(
+              id:                 id,
+              read_name:          read_name,
+              write_name:         write_name,
+
+              args_for_provider: [nil] # FIXME
+            )
+
+            return id, {node: node}
           end
 
         end # Inject
