@@ -81,6 +81,61 @@ class ComposableTest < Minitest::Spec
     assert_equal mutable, {}
   end
 
+  it "Inject(:my_id) => <default> is not called when variable is present" do
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_id) => ->(ctx, params:, **) { raise }
+      },
+      add_default_ctx: true
+    )
+
+    assert_input input_node,
+      {params: {id: 1}, bogus: true, my_id: 2},
+      {params: {id: 1}, bogus: true, my_id: 2}
+  end
+
+  it "Inject(:my_id) => <default> is called variable is absent" do
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_id) => ->(ctx, params:, **) { params[:id] + 1 }
+      },
+      add_default_ctx: true
+    )
+
+    assert_input input_node,
+      {params: {id: 1}, bogus: true},
+      {params: {id: 1}, bogus: true, my_id: 2}
+  end
+
+  it "Inject(:my_id, override: true)" do
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL::Inject(:my_id, override: true) => ->(ctx, params:, **) { params[:id] }
+      },
+      add_default_ctx: true
+    )
+
+    # Inject is called because {:my_id} is absent in input.
+    assert_input input_node,
+      {params: {id: 1}, bogus: true,},
+      {params: {id: 1}, bogus: true, my_id: 1}
+
+    # override, we still call the Inject logic even though {:my_id} is incoming.
+    assert_input input_node,
+      {params: {id: 1}, bogus: true, my_id: 2},
+      {params: {id: 1}, bogus: true, my_id: 1}
+  end
+
+  def assert_input(input_node, original_ctx, expected_shadowed, terminus: nil)
+    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
+      flow_options: {application_ctx: original_ctx},
+      terminus: terminus
+
+    shadowed, mutable = flow_options[:application_ctx].decompose
+    assert_equal shadowed, expected_shadowed
+    assert_equal mutable, {}
+  end
+
   it "DSL converts DSL-tuples to Filters via {Input.node_for_tuples}" do
     my_input_provider       = ->(ctx, slug:, **) { {my_slug: slug.upcase} }
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
@@ -93,41 +148,31 @@ class ComposableTest < Minitest::Spec
         Trailblazer::Activity::VariableMapping::DSL::In() => my_input_provider,
         Trailblazer::Activity::VariableMapping::DSL::Inject(:my_global_id) => my_provider_for_default,
         Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
+
         # inject with override
         # Out with pass_outer_ctx
       },
       add_default_ctx: false # because we got one In()
     )
 
-
-    # same test as the one above.
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
-      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: [],
-        controller: Object, action: :create, bogus: true,},
+    assert_input input_node,
+      {slug: "0x666", params: {id: 1}, controller: Object, action: :create, bogus: true,},
+      {my_slug: "0X666", my_global_id: 1,
+        controller: Object, action: :create,
+        my_action: :create,
       },
       terminus: Trailblazer::Activity::Left
 
-    shadowed, mutable = flow_options[:application_ctx].decompose
-    assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
-        controller: Object, action: :create,
-        my_action: :create,
-      }
-    assert_equal mutable, {}
-
   # {:http} is present in input
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
-      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: [],
-        controller: Object, action: :create, bogus: true, http: Module},
+    assert_input input_node,
+      {slug: "0x666", params: {id: 1}, seq: [],
+        controller: Object, action: :create, bogus: true, http: Module
       },
-      terminus: nil
-
-    shadowed, mutable = flow_options[:application_ctx].decompose
-    assert_equal shadowed, {my_slug: "0X666", my_global_id: 1,
+      {my_slug: "0X666", my_global_id: 1,
         controller: Object, action: :create,
         my_action: :create,
         http: Module,
       }
-    assert_equal mutable, {}
   end
 
   it "DSL.node_for_input, default context without any whitelisting" do

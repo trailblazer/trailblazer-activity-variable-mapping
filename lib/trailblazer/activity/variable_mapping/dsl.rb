@@ -132,22 +132,29 @@ module Trailblazer
         #               2. "with condition" and default.
         #               3. override: like 2. with a condition always {false}.
         class Inject < In # FIXME: now I'm mixing DSL and building
-          def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name)
-            # Inject means, always wrap, always write_name, always read_name
-            id, inject_node_hsh = super(provider, read_name: read_name, write_name: write_name, id: :"inject.#{provider}")
-
-            inject_node = inject_node_hsh[:node]
+          def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"inject.#{provider}")
+            inject_node = Runtime::Filter::Defaulted.build_node(
+              id:                 id,
+              args_for_provider:  [:read_variable_from_application_ctx],
+              read_name:          read_name,
+              write_name:         write_name,
+              default_provider:   provider,
+            )
 
             # Inject provider always means we need hash wrap.
-            inject_node = Trailblazer::Circuit::Node::Patch.(
-              inject_node,
+            inject_node = self.class.add_wrap_value_step(inject_node)
+
+            return id, {node: inject_node}
+          end
+
+          def self.add_wrap_value_step(node)
+            node = Trailblazer::Circuit::Node::Patch.(
+              node,
               [],
               adds: [
                 Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
               ]
             )
-
-            return id, {node: inject_node}
           end
 
           def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"inject.#{read_name} > #{write_name}")
@@ -162,6 +169,23 @@ module Trailblazer
             return id, {node: node}
           end
 
+          # Override is an Inject filter that is always called,
+          # regardless of the variable presence (just like In).
+          class Override < Inject # NOTE: Experimental!
+            def call(provider_from_user)
+              read_name   = @options.fetch(:read_name)
+              write_name  = read_name
+
+              # since "override" means "always invoke provider", we can reuse {In} logic.
+              id, node_hsh = In.new().build_filter_node_row_for_provider(provider_from_user, read_name: read_name, write_name: write_name)
+
+              node = Inject.add_wrap_value_step(node_hsh[:node])
+
+              return [
+                [id, {node: node}]
+              ]
+            end
+          end
         end # Inject
 
         def self.In(variable_name = nil, tuple_class = In, **left_user_options)
@@ -178,8 +202,10 @@ module Trailblazer
 
         # Used in the DSL by you.
         # DISCUSS: should we move the options processing and deciding code into the resp. FiltersBuilder?
-        def self.Inject(variable_name = nil, **left_user_options)
-          In(variable_name, Inject, **left_user_options)
+        def self.Inject(variable_name = nil, override: nil, tuple_class: Inject, **left_user_options)
+          tuple_class = Inject::Override if override
+
+          In(variable_name, tuple_class, **left_user_options)
         end
 
         # require_relative "runtime/filter_step"
