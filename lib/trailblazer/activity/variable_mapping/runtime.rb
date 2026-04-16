@@ -41,6 +41,33 @@ module Trailblazer
 
     return lib_ctx, flow_options, signal
   end
+
+
+
+
+
+
+
+          def self.merge_aggregate_into_original_ctx(lib_ctx, flow_options, signal, aggregate:, original_application_ctx:, **)
+            new_ctx = original_application_ctx.merge(aggregate)
+
+            flow_options = flow_options.merge(application_ctx: new_ctx)
+
+            return lib_ctx, flow_options, signal
+          end
+
+          # Merge the mutable part of the scoped ctx back into the outer ctx.
+          # Default behavior when there's nothing configured.
+          def self.default_output_ctx(lib_ctx, flow_options, signal, aggregate:, **)
+            ctx = flow_options[:application_ctx]
+
+            _wrapped, mutable = ctx.decompose # `_wrapped` is what the `:input` filter returned, `mutable` is what the task wrote to `scoped`.
+
+            lib_ctx[:aggregate] = aggregate.merge(mutable)
+
+            return lib_ctx, flow_options, signal
+          end
+
       end
     end
   end

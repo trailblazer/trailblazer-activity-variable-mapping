@@ -9,14 +9,14 @@ module Trailblazer
           #           input_pipe and output_pipe
           #           HOW do we make that customizable so we could add filter circuits or alter them?
 
-          def node_for_filters(ary_of_filter_rows, **options)
+          def call(ary_of_filter_rows, id: :"input.node", **options)
             input_pipeline = pipeline_for(ary_of_filter_rows, **options)
 
-            node_for_input(input_pipeline)
+            node_for_input(input_pipeline, id: id)
           end
 
-          def node_for_input(pipeline)
-            Circuit::Node::Scoped[:"input.node", pipeline, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
+          def node_for_input(pipeline, id:, **)
+            Circuit::Node::Scoped[id, pipeline, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
           end
 
           # Adds the default_ctx step as per option {:add_default_ctx}

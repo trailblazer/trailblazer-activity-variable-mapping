@@ -126,6 +126,76 @@ class ComposableTest < Minitest::Spec
       {params: {id: 1}, bogus: true, my_id: 1}
   end
 
+  it "Output.node_for_tuples() without any tuples, {add_default_ctx: true}" do
+    output_node = Trailblazer::Activity::VariableMapping::DSL::Output.node_for_tuples(
+      {
+      },
+
+      add_default_ctx: true # copy everything back.
+    )
+    # pp output_node
+
+    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
+        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
+
+      # assert_equal lib_ctx, {
+      #   aggregate: {
+      #     :my_slug => [
+      #       1,
+      #       { # the kwargs we see in the user provider:
+      #         bogus: true,
+      #         slug: "0x666",
+      #       }
+      #     ],
+      #   },
+      #   original_application_ctx: {:params=>{:id=>1}}
+
+      # }
+      assert_equal flow_options, {
+        application_ctx: { # this is the new computed application_ctx, which combines the old and "new" one.
+          params: {id: 1},              # from outer, original_ctx.
+          bogus: true, slug: "0x666",   # from call_task.
+        }
+      }
+  end
+
+  it "Output.node_for_tuples() {add_default_ctx: false}" do
+    output_node = Trailblazer::Activity::VariableMapping::DSL::Output.node_for_tuples(
+      {
+      },
+      add_default_ctx: false
+    )
+
+    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
+        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
+
+      assert_equal lib_ctx, {
+        original_application_ctx: {:params=>{:id=>1}}
+      }
+
+      assert_equal flow_options, {
+        application_ctx: { # this is the new computed application_ctx, which simply is the original, outer one.
+          params: {id: 1},              # from outer, original_ctx.
+          # bogus: true, slug: "0x666",   # from call_task.
+        }
+      }
+  end
+
+  it "Out(pass_outer_ctx: true)" do
+    output_node = Trailblazer::Activity::VariableMapping::DSL::Output.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL.Out(pass_outer_ctx: true) => ->(ctx, model:, outer_ctx:, **) { {my_model: outer_ctx[:model]} }
+      },
+
+      add_default_ctx: false # whitelisting ON.
+    )
+
+    # pp output_node
+raise
+  end
+
   def assert_input(input_node, original_ctx, expected_shadowed, terminus: nil)
     lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
       flow_options: {application_ctx: original_ctx},

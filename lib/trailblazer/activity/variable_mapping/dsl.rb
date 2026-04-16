@@ -10,38 +10,32 @@ module Trailblazer
         module Input
           module_function
 
-          def node_for_tuples(tuples, add_default_ctx:) # at this point, we already know if there are In(), or only Inject().
+          # NOTE: this is sitting in DSL because we're processing Tuples here, which is a DSL concept (?).
+          def node_for_tuples(tuples, add_default_ctx:, build_class: Build::Input) # at this point, we already know if there are In(), or only Inject().
             # raise tuples.inspect
 
             # produce an array of [id, #<Filter>] "rows", they make up the input/output pipe.
             filter_rows = tuples.flat_map { |left_tuple, right_option| left_tuple.(right_option) }
 
-            Build::Input.node_for_filters(filter_rows, add_default_ctx: add_default_ctx)
+            build_class.(filter_rows, add_default_ctx: add_default_ctx) # returns node
           end
 
-          def self.hash_for_array(ary)
-            ary.collect { |name| [name, name] }.to_h
-          end
+          # def self.hash_for_array(ary)
+          #   ary.collect { |name| [name, name] }.to_h
+          # end
         end
 
-        def pipe_for_composable_output(out_filters: [], initial_output_pipeline_hash: initial_output_pipeline_hash(add_default_ctx: Array(out_filters).empty?), **)
-          out_filters_adds = DSL::Tuple.compile_tuples(out_filters)
+        module Output
+          extend Input
 
-          Activity::Adds.(initial_output_pipeline_hash.to_a, *out_filters_adds)
+          module_function
+
+          def node_for_tuples(tuples, add_default_ctx:, build_class: Build::Output)
+            super # DISCUSS: use inheritance or delegation or module?
+          end
         end
 
 # TODO: move to Runtime
-        def initial_output_pipeline_hash(add_default_ctx: false)
-          default_ctx_row =
-            add_default_ctx ? row_for_default_output_ctx : {}
-
-          default_ctx_row
-            .merge("output.merge_with_original" => VariableMapping::Runtime.method(:merge_with_original))
-        end
-
-        def row_for_default_output_ctx
-          {"output.default_output" => VariableMapping::Runtime.method(:default_output_ctx)}
-        end
 
 
         # Keeps user's DSL configuration for a particular io-pipe step.
@@ -123,7 +117,41 @@ module Trailblazer
           end
         end # In
 
-        class Out < Tuple
+        class Out < In
+          # def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"out.#{provider}")
+          #   my_node = Filter.build_node(
+          #     id: nil,
+          #     args_for_provider: [my_input_provider],
+          #     write_name: :my_slug,
+          #     read_name: nil,
+          #     # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
+          #   )
+
+          #   my_node = Trailblazer::Circuit::Node::Patch.(
+          #     my_node,
+          #     [:invoke_provider],
+          #     adds: [
+          #       [
+          #         :merge_outer_ctx,
+          #         Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
+          #         :before, :invoke_provider
+          #       ]
+          #     ]
+          #   )
+
+          #   my_node = Trailblazer::Circuit::Node::Patch.(
+          #     my_node,
+          #     [],
+          #     adds: [
+          #       Filter::Build::WRAP_VALUE_WITH_HASH
+          #     ]
+          #   )
+          # end
+          class PassOuterCtx < Out
+            def call(provider_from_user)
+              raise provider_from_user.inspect
+            end
+          end
         end # Out
 
         # This class is supposed to hold configuration options for Inject().
@@ -196,7 +224,9 @@ module Trailblazer
         end
 
         # Builder for a DSL Output() object.
-        def self.Out(variable_name = nil, **left_user_options)
+        def self.Out(variable_name = nil, pass_outer_ctx: false, tuple_class: Out, **left_user_options)
+          tuple_class = Out::PassOuterCtx if pass_outer_ctx # DISCUSS: how would this work with multiple features activated?
+
           In(variable_name, Out, **left_user_options)
         end
 

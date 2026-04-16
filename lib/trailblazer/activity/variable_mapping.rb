@@ -10,6 +10,7 @@ end
 
 require "trailblazer/activity"
 require "trailblazer/activity/variable_mapping/build/input"
+require "trailblazer/activity/variable_mapping/build/output" # DISCUSS: separate file?
 require "trailblazer/activity/variable_mapping/dsl"
 require "trailblazer/activity/variable_mapping/runtime"
 require "trailblazer/activity/variable_mapping/runtime/filter"
