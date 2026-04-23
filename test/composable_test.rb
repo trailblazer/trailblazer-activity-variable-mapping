@@ -183,6 +183,31 @@ class ComposableTest < Minitest::Spec
       }
   end
 
+  it "Output.node_for_tuples() with filters and {add_default_ctx: false}" do
+    output_node = Trailblazer::Activity::VariableMapping::DSL::Output.node_for_tuples(
+      {
+        Trailblazer::Activity::VariableMapping::DSL.Out() => ->(ctx, slug:, **) { {my_slug: slug} }
+      },
+      add_default_ctx: false # because we got an Out filter.
+    )
+
+    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
+        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
+
+      assert_equal lib_ctx, {
+        original_application_ctx: {:params=>{:id=>1}}
+      }
+
+      assert_equal flow_options, {
+        application_ctx: { # this is the new computed application_ctx, which simply is the original, outer one.
+          params: {id: 1},              # from outer, original_ctx.
+          # bogus: true,
+          my_slug: "0x666",   # from Out().
+        }
+      }
+  end
+
   it "Out(pass_outer_ctx: true)" do
     output_node = Trailblazer::Activity::VariableMapping::DSL::Output.node_for_tuples(
       {
@@ -192,8 +217,22 @@ class ComposableTest < Minitest::Spec
       add_default_ctx: false # whitelisting ON.
     )
 
-    # pp output_node
-raise
+    # assert_input output_node, # FIXME: implement assert_output
+    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+        original_application_ctx: original_application_ctx = {params: {id: 1}, model: "outer model"}.freeze, # this is what the Out filter sees as the "outer_ctx".
+        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, model: "inner model"})} # this is the ctx produced by the call_task.
+
+      # Don't change original "outer" ctx.
+      assert_equal lib_ctx, {
+        original_application_ctx: original_application_ctx
+      }
+
+      assert_equal flow_options, {
+        application_ctx: { # this is the new computed application_ctx.
+          **original_application_ctx, # we always merge the {:aggregate} with the {original_application_ctx}.
+          my_model: "outer model",   # from Out().
+        }
+      }
   end
 
   def assert_input(input_node, original_ctx, expected_shadowed, terminus: nil)

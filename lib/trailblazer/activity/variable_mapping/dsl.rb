@@ -129,18 +129,6 @@ module Trailblazer
 
           #   my_node = Trailblazer::Circuit::Node::Patch.(
           #     my_node,
-          #     [:invoke_provider],
-          #     adds: [
-          #       [
-          #         :merge_outer_ctx,
-          #         Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
-          #         :before, :invoke_provider
-          #       ]
-          #     ]
-          #   )
-
-          #   my_node = Trailblazer::Circuit::Node::Patch.(
-          #     my_node,
           #     [],
           #     adds: [
           #       Filter::Build::WRAP_VALUE_WITH_HASH
@@ -149,7 +137,31 @@ module Trailblazer
           # end
           class PassOuterCtx < Out
             def call(provider_from_user)
-              raise provider_from_user.inspect
+
+              id, node_hsh = build_filter_node_row_for_provider(provider_from_user, **@options)
+
+              node = node_hsh[:node]
+
+              node = add_merge_outer_ctx_step(node)
+              # node = Inject.add_wrap_value_step(node) # no wrapping as the user provider returns a hash!
+
+              return [
+                [id, {node: node}]
+              ] # @options is usually {read_name: :slug}
+            end
+
+            def add_merge_outer_ctx_step(node) # TODO: simplify?
+              _node = Circuit::Node::Patch.(
+                node,
+                [:invoke_provider],
+                adds: [
+                  [
+                    :merge_outer_ctx,
+                    Circuit::Node[:merge_outer_ctx, Runtime::Filter.method(:merge_outer_ctx), Circuit::Task::Adapter::LibInterface],
+                    :before, :invoke_provider
+                  ]
+                ]
+              )
             end
           end
         end # Out
@@ -227,7 +239,7 @@ module Trailblazer
         def self.Out(variable_name = nil, pass_outer_ctx: false, tuple_class: Out, **left_user_options)
           tuple_class = Out::PassOuterCtx if pass_outer_ctx # DISCUSS: how would this work with multiple features activated?
 
-          In(variable_name, Out, **left_user_options)
+          In(variable_name, tuple_class, **left_user_options)
         end
 
         # Used in the DSL by you.
