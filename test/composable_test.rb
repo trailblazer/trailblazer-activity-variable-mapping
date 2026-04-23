@@ -191,20 +191,12 @@ class ComposableTest < Minitest::Spec
       add_default_ctx: false # because we got an Out filter.
     )
 
-    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
-        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
-        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
-
-      assert_equal lib_ctx, {
-        original_application_ctx: {:params=>{:id=>1}}
-      }
-
-      assert_equal flow_options, {
-        application_ctx: { # this is the new computed application_ctx, which simply is the original, outer one.
-          params: {id: 1},              # from outer, original_ctx.
-          # bogus: true,
-          my_slug: "0x666",   # from Out().
-        }
+    assert_output output_node,
+      original_application_ctx: original_application_ctx = {params: {id: 1}},
+      mutable_ctx:              {bogus: true, slug: "0x666"},
+      expected_application_ctx: { # this is the new computed application_ctx.
+        **original_application_ctx, # we always merge the {:aggregate} with the {original_application_ctx}.
+        my_slug: "0x666",   # from Out().
       }
   end
 
@@ -217,21 +209,12 @@ class ComposableTest < Minitest::Spec
       add_default_ctx: false # whitelisting ON.
     )
 
-    # assert_input output_node, # FIXME: implement assert_output
-    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
-        original_application_ctx: original_application_ctx = {params: {id: 1}, model: "outer model"}.freeze, # this is what the Out filter sees as the "outer_ctx".
-        flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, model: "inner model"})} # this is the ctx produced by the call_task.
-
-      # Don't change original "outer" ctx.
-      assert_equal lib_ctx, {
-        original_application_ctx: original_application_ctx
-      }
-
-      assert_equal flow_options, {
-        application_ctx: { # this is the new computed application_ctx.
-          **original_application_ctx, # we always merge the {:aggregate} with the {original_application_ctx}.
-          my_model: "outer model",   # from Out().
-        }
+    assert_output output_node,
+      original_application_ctx: original_application_ctx = {params: {id: 1}, model: "outer model"},
+      mutable_ctx:              {bogus: true, model: "inner model"},
+      expected_application_ctx: { # this is the new computed application_ctx.
+        **original_application_ctx, # we always merge the {:aggregate} with the {original_application_ctx}.
+        my_model: "outer model",   # from Out().
       }
   end
 
@@ -243,6 +226,27 @@ class ComposableTest < Minitest::Spec
     shadowed, mutable = flow_options[:application_ctx].decompose
     assert_equal shadowed, expected_shadowed
     assert_equal mutable, {}
+  end
+
+  def assert_output(node, original_application_ctx:, mutable_ctx:, expected_application_ctx:)
+    original_application_ctx.freeze
+
+    lib_ctx, flow_options = assert_run node, seq: nil, node: true,
+      original_application_ctx: original_application_ctx, # this is what the Out filter sees as the "outer_ctx".
+      flow_options: {
+      application_ctx: Trailblazer::Activity::VariableMapping::Context.new(
+        {from_outside: Object},
+        {bogus: true, **mutable_ctx} # mutable_ctx is what the task actually wrote to the "working ctx".
+        )
+    } # this is the ctx produced by the call_task.
+
+    assert_equal lib_ctx, {
+      original_application_ctx: original_application_ctx
+    }
+
+    assert_equal flow_options, {
+      application_ctx: expected_application_ctx # this is the new computed application_ctx, which simply is the original, outer one.
+    }
   end
 
   it "DSL converts DSL-tuples to Filters via {Input.node_for_tuples}" do
