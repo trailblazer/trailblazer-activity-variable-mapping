@@ -114,7 +114,7 @@ module Trailblazer
         class In < Tuple
         end # In
 
-        class Out < In
+        class Out < Tuple
           class PassOuterCtx < Out
             def call(provider_from_user)
               id, node_hsh = build_filter_node_row_for_provider(provider_from_user, **@options)
