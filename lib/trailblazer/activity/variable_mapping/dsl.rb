@@ -20,10 +20,6 @@ module Trailblazer
             # Create a Pipeline with the filter ary above and some additional behavior (eg merging outer ctx).
             build_class.(filter_rows, add_default_ctx: add_default_ctx) # returns node
           end
-
-          # def self.hash_for_array(ary)
-          #   ary.collect { |name| [name, name] }.to_h
-          # end
         end
 
         module Output
@@ -35,9 +31,6 @@ module Trailblazer
             super # DISCUSS: use inheritance or delegation or module?
           end
         end
-
-# TODO: move to Runtime
-
 
         # Keeps user's DSL configuration for a particular io-pipe step.
         # Implements the interface for the actual I/O code and is DSL code happening in the normalizer.
@@ -51,21 +44,9 @@ module Trailblazer
             @options = options
           end
 
-          # def to_h
-          #   @options
-          # end
-
-
-        end # TODO: test {:insert_args}
-
-        # In, Out and Inject are objects instantiated when using the DSL, for instance {In() => [:model]}.
-        #
-        # NOTE: do the options processing (such as {:with_outer_ctx}) in the In() method and not in the In object,
-        #       as we don't need options once we're in a FiltersBuilder.
-        #
-        #    also, the sooner we complain about a missing or wrong kwarg, the better. Maybe In() should already verify options?
-  # raise "could we add, via the DSL in invoke, add an empty In() that doesn't build anything?"
-        class In < Tuple
+          # DISCUSS: this is logic run much later in the DSL compilation
+          #          problem here is, we have the "Struct" nature as a real DSL object,
+          #          and the DSL conversion nature of this object implemented in #call et al.
           def call(right_options) # FIXME: now I'm mixing DSL and building.
 
             if right_options.is_a?(Array)
@@ -116,35 +97,30 @@ module Trailblazer
 
             [id, node: node] # for Pipeline().
           end
+          # def to_h
+          #   @options
+          # end
+
+
+        end # TODO: test {:insert_args}
+
+        # In, Out and Inject are objects instantiated when using the DSL, for instance {In() => [:model]}.
+        #
+        # NOTE: do the options processing (such as {:with_outer_ctx}) in the In() method and not in the In object,
+        #       as we don't need options once we're in a FiltersBuilder.
+        #
+        #    also, the sooner we complain about a missing or wrong kwarg, the better. Maybe In() should already verify options?
+  # raise "could we add, via the DSL in invoke, add an empty In() that doesn't build anything?"
+        class In < Tuple
         end # In
 
         class Out < In
-          # def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"out.#{provider}")
-          #   my_node = Filter.build_node(
-          #     id: nil,
-          #     args_for_provider: [my_input_provider],
-          #     write_name: :my_slug,
-          #     read_name: nil,
-          #     # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
-          #   )
-
-          #   my_node = Trailblazer::Circuit::Node::Patch.(
-          #     my_node,
-          #     [],
-          #     adds: [
-          #       Filter::Build::WRAP_VALUE_WITH_HASH
-          #     ]
-          #   )
-          # end
           class PassOuterCtx < Out
             def call(provider_from_user)
-
               id, node_hsh = build_filter_node_row_for_provider(provider_from_user, **@options)
 
               node = node_hsh[:node]
-
               node = add_merge_outer_ctx_step(node)
-              # node = Inject.add_wrap_value_step(node) # no wrapping as the user provider returns a hash!
 
               return [
                 [id, {node: node}]
@@ -172,7 +148,7 @@ module Trailblazer
         # Inject can be 1. "with condition": only add to aggregate if variable is present in original_ctx.
         #               2. "with condition" and default.
         #               3. override: like 2. with a condition always {false}.
-        class Inject < In # FIXME: now I'm mixing DSL and building
+        class Inject < Tuple # FIXME: now I'm mixing DSL and building
           def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"inject.#{provider}")
             inject_node = Runtime::Filter::Defaulted.build_node(
               id:                 id,
