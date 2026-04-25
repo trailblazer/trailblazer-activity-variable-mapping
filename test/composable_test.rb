@@ -68,7 +68,7 @@ class ComposableTest < Minitest::Spec
       ]
     ]
 
-    input_node = Trailblazer::Activity::VariableMapping::Build::Input.node_for_filters(
+    input_node = Trailblazer::Activity::VariableMapping::Build::Input.( # DISCUSS: shouldn't we use {DSL::Input.node_for_tuples} here?
       array_of_filter_rows,
       add_default_ctx: true
     )
@@ -289,38 +289,18 @@ class ComposableTest < Minitest::Spec
   end
 
   it "DSL.node_for_input, default context without any whitelisting" do
-    input_node = Trailblazer::Activity::VariableMapping::DSL.node_for_input()
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples([], add_default_ctx: true)
 
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: []
-
-    pp input_node
-
-    assert_equal flow_options[:application_ctx].class, Trailblazer::Activity::VariableMapping::Context
-    assert_equal flow_options[:application_ctx].to_h, {seq: []}
-
-    assert_equal flow_options.keys, [:application_ctx]
-
-    my_model_tw = Pipeline(
-      my_model_call_task
-    )
+    assert_input input_node,
+      {bogus: true},
+      {bogus: true}
   end
 
   it "blacklist everything" do
-    # In() => MoreModelInput
-    more_model_input = Class.new do
-      # Step interface.
-      def self.call(ctx, slug:, **)
-        {
-          slug: slug.downcase
-        }
-      end
-    end
+    input_node = Trailblazer::Activity::VariableMapping::DSL::Input.node_for_tuples([], add_default_ctx: false)
 
-
-
-    # tuples = {Trailblazer::Activity::VariableMapping::DSL.In() => []}
-    tuples = {Trailblazer::Activity::VariableMapping::DSL.In() => [:params]}
-
-    input_node = Trailblazer::Activity::VariableMapping::DSL.node_for_input(tuples: tuples)
+    assert_input input_node,
+      {bogus: true},
+      {}
   end
 end
