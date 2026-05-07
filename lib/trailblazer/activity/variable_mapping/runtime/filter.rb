@@ -63,7 +63,9 @@ module Trailblazer
                   connections: {nil => :wrap_value_with_hash}],
                 [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod,
                   connections: {nil => :add_value_to_aggregate}],
-                [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod] # terminus.
+                [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod,
+                  connections: {nil => nil} # terminus.
+                ]
               ]
 
               Circuit::Builder::Circuit.(*circuit_steps)
