@@ -10,9 +10,9 @@ module Trailblazer
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
-            provider_node = Activity::Step.build(provider_with_step_interface,
-              copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
-              **options_for_provider_node,
+            provider_node = Activity::Step.build(
+              provider_with_step_interface,
+              **options_for_provider_node, # DISCUSS: what's this?
               binary: false
             )
 
@@ -35,8 +35,9 @@ module Trailblazer
 
           def self.create_node_for(circuit, write_name:, read_name:, id:)
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
-            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how state is transported in this little pipeline.
+            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
+# DISCUSS: let's see how many scopes we need for a filter pipeline?
             Circuit::Node::Scoped[id, circuit, Circuit::Processor,
               merge_to_lib_ctx: {exec_context: filter_exec_context},
               copy_to_outer_ctx: [:aggregate],
@@ -58,13 +59,14 @@ module Trailblazer
 
               circuit_steps = [
                 [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
-                  connections: {nil => :invoke_provider, Left => nil}], # Left means terminate.
+                  connections: {nil => [:invoke_provider, nil], Left => [nil, Left]}], # Left means terminate.
+                  raise "what if signal is not nil?",
                 [:invoke_provider, node: provider_node, # extract a value
-                  connections: {nil => :wrap_value_with_hash}],
+                  connections: Circuit::Resolver::Fixed.new(:wrap_value_with_hash)],
                 [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod,
-                  connections: {nil => :add_value_to_aggregate}],
+                  connections: Circuit::Resolver::Fixed.new(:add_value_to_aggregate)],
                 [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod,
-                  connections: {nil => nil} # terminus.
+                  connections: Circuit::Resolver::Fixed.new(nil) # terminus.
                 ]
               ]
 
@@ -95,16 +97,16 @@ module Trailblazer
             end
           end
 
-          def add_value_to_aggregate(lib_ctx, flow_options, signal, value:, aggregate:, **)
+          def add_value_to_aggregate(lib_ctx, flow_options, value, aggregate:, **)
             lib_ctx[:aggregate] = aggregate.merge(value)
 
-            return lib_ctx, flow_options, signal
+            return lib_ctx, flow_options, value
           end
 
-          def wrap_value_with_hash(lib_ctx, flow_options, signal, value:, **)
-            lib_ctx[:value] = {write_name => value}
+          def wrap_value_with_hash(lib_ctx, flow_options, value, **)
+            value = {write_name => value}
 
-            return lib_ctx, flow_options, signal
+            return lib_ctx, flow_options, value
           end
 
           module Build # TODO: rename to Feature.

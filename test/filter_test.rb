@@ -23,8 +23,9 @@ class FilterTest < Minitest::Spec
       ]
     )
 
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
-      **filter_lib_ctx_options
+    lib_ctx, flow_options, signal = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+      **filter_lib_ctx_options,
+      terminus: {:my_slug=>"generator-1"} # DISCUSS: value-on-signal
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"generator-1"}}
     assert_equal flow_options, original_flow_options
@@ -166,7 +167,8 @@ class FilterTest < Minitest::Spec
       )
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
-        **filter_lib_ctx_options
+        **filter_lib_ctx_options,
+        terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
 
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
       assert_equal flow_options, original_flow_options
