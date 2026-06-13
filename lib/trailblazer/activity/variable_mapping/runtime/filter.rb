@@ -59,8 +59,7 @@ module Trailblazer
 
               circuit_steps = [
                 [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
-                  connections: {nil => [:invoke_provider, nil], Left => [nil, Left]}], # Left means terminate.
-                  raise "what if signal is not nil?",
+                  connections: Circuit::Resolver::Conditional.new([Left], nil, :invoke_provider)], # Left means terminate.
                 [:invoke_provider, node: provider_node, # extract a value
                   connections: Circuit::Resolver::Fixed.new(:wrap_value_with_hash)],
                 [:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod,
@@ -79,18 +78,14 @@ module Trailblazer
               # FIXME: playing with "inheritance" here
               conditioned_circuit = Conditioned.build_circuit
 
-              default_provider_node = Activity::Step.build(
-                default_provider,
-                copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
-                binary: false
-              )
+              default_provider_node = Activity::Step.build(default_provider, binary: false)
 
               adds_instruction = [
                 :invoke_default_provider,
                 default_provider_node,
                 :after, :variable_present_in_application_ctx?,
                 inbound_signal: Left,
-                outbound_connections: {nil => :wrap_value_with_hash},
+                resolver: Circuit::Resolver::Fixed.new(:wrap_value_with_hash),
               ]
 
               Circuit::Adds.(conditioned_circuit, adds_instruction)

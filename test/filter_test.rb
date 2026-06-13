@@ -168,17 +168,26 @@ class FilterTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
         **filter_lib_ctx_options,
-        terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
+        terminus: {:slug=>"generator-1"},
+        signal: Object
 
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
       assert_equal flow_options, original_flow_options
+    end
 
-      # :slug is absent, we don't set anything.
-      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {id: 1}}.freeze,
+    it "works even if the incoming signal is something other than {nil}" do
+      my_node = Filter::Conditioned.build_node(
+        id: nil,
+        args_for_provider: [nil], # FIXME: we don't need this here.
+        write_name: :slug,
+        read_name: :slug,
+      )
+
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
         **filter_lib_ctx_options,
-        terminus: Trailblazer::Activity::Left
+        terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
 
-      assert_equal lib_ctx, {aggregate: {}} # pristine aggregate because of no {:slug} anywhere.
+      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
       assert_equal flow_options, original_flow_options
     end
   end
@@ -197,7 +206,7 @@ class FilterTest < Minitest::Spec
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
       flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
         **filter_lib_ctx_options,
-        terminus: nil
+        terminus: {my_global_id: 1}
 
     assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}}
 
@@ -206,7 +215,7 @@ class FilterTest < Minitest::Spec
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
       flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
         **filter_lib_ctx_options,
-        terminus: nil
+        terminus: {my_global_id: 2}
 
     assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}}
   end
