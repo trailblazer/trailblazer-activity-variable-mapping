@@ -49,7 +49,8 @@ class FilterTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
-      **filter_lib_ctx_options
+      **filter_lib_ctx_options,
+      terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
     assert_equal flow_options, original_flow_options
@@ -78,7 +79,8 @@ class FilterTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
-      **filter_lib_ctx_options
+      **filter_lib_ctx_options,
+      terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
     assert_equal flow_options, original_flow_options
@@ -95,7 +97,8 @@ class FilterTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
-      **filter_lib_ctx_options
+      **filter_lib_ctx_options,
+      terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
     assert_equal flow_options, original_flow_options
@@ -120,7 +123,8 @@ class FilterTest < Minitest::Spec
           [
             :merge_outer_ctx,
             Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
-            :before, :invoke_provider
+            :before, :invoke_provider,
+            # inbound_signal: nil # we want to sit between {set_target_ctx} and {invoke_provider}.
           ]
         ]
       )
@@ -138,10 +142,8 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
         original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
-        flow_options: {application_ctx: {bogus: true, slug: "0x666"}} # this is the ctx produced by the call_task.
-
-      assert_equal lib_ctx, {
-        aggregate: {
+        flow_options: {application_ctx: {bogus: true, slug: "0x666"}}, # this is the ctx produced by the call_task.
+        terminus: expected_aggregate = {
           :my_slug => [
             1,
             { # the kwargs we see in the user provider:
@@ -149,7 +151,11 @@ class FilterTest < Minitest::Spec
               slug: "0x666",
             }
           ],
-        },
+        }
+
+
+      assert_equal lib_ctx, {
+        aggregate: expected_aggregate,
         original_application_ctx: {:params=>{:id=>1}}
 
       }

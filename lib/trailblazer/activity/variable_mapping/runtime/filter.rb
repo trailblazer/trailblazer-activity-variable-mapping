@@ -35,7 +35,7 @@ module Trailblazer
 
           def self.create_node_for(circuit, write_name:, read_name:, id:)
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
-            filter_exec_context = Filter[read_name, write_name] # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
+            filter_exec_context = Filter[read_name, write_name].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
 # DISCUSS: let's see how many scopes we need for a filter pipeline?
             Circuit::Node::Scoped[id, circuit, Circuit::Processor,
@@ -43,6 +43,8 @@ module Trailblazer
               copy_to_outer_ctx: [:aggregate],
             ]
           end
+
+          # raise "Scoped ==> only merge_to_lib_ctx"
 
           module Out
 
@@ -52,10 +54,7 @@ module Trailblazer
             def self.build_circuit(**)
               provider_with_step_interface = :read_variable_from_application_ctx
 
-              provider_node = Activity::Step.build(provider_with_step_interface,
-                copy_to_outer_ctx: [:value], # the whole point of a provider is to provide a {:value}.
-                binary: false
-              )
+              provider_node = Activity::Step.build(provider_with_step_interface, binary: false)
 
               circuit_steps = [
                 [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
@@ -105,7 +104,7 @@ module Trailblazer
           end
 
           module Build # TODO: rename to Feature.
-            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Trailblazer::Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
+            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
           # DISCUSS: should we keep the following methods in a subclass of {Filter}?
