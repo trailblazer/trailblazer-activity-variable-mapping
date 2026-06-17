@@ -37,14 +37,8 @@ module Trailblazer
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[read_name, write_name].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
-# DISCUSS: let's see how many scopes we need for a filter pipeline?
-            Circuit::Node::Scoped[id, circuit, Circuit::Processor,
-              merge_to_lib_ctx: {exec_context: filter_exec_context},
-              copy_to_outer_ctx: [:aggregate],
-            ]
+            return Circuit::Node::MergeToCircuitOptions[id, circuit, Circuit::Processor, exec_context: filter_exec_context]
           end
-
-          # raise "Scoped ==> only merge_to_lib_ctx"
 
           module Out
 
@@ -124,10 +118,10 @@ module Trailblazer
           end
 
           # FIXME: should we use instance method instead?
-          def self.merge_outer_ctx(lib_ctx, flow_options, signal, target_ctx:, original_application_ctx:, **)
+          def self.merge_outer_ctx(lib_ctx, flow_options, target_ctx, original_application_ctx:, **)
             target_ctx = target_ctx.merge(outer_ctx: original_application_ctx)
 
-            return lib_ctx.merge(target_ctx: target_ctx), flow_options, signal
+            return lib_ctx, flow_options, target_ctx
           end
         end # Filter
       end

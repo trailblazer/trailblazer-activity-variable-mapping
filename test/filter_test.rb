@@ -56,16 +56,17 @@ class FilterTest < Minitest::Spec
     assert_equal flow_options, original_flow_options
   end
 
-  it "invoke an {:instance_method}, wrap the value" do
+  it "invoke an {:instance_method}, wrap the value, FIXME: we're using the {args_for_provider} option!!!!!!!!!" do
     my_exec_context = Class.new do
       def downcase_slug(ctx, slug:, **)
         slug.upcase
       end
     end.new
+
 # FIXME: remove write_name where it's nil
     my_node = Filter.build_node(
       id: nil,
-      args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, merge_to_lib_ctx: {exec_context: my_exec_context}],
+      args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, exec_context: my_exec_context],
       read_name: nil,
       write_name: :my_slug,
     )
@@ -196,6 +197,7 @@ class FilterTest < Minitest::Spec
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
       assert_equal flow_options, original_flow_options
     end
+
   end
 
   it "defaults value if absent, and reads value otherwise (Defaulted)" do
