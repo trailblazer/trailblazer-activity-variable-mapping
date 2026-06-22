@@ -6,7 +6,7 @@ module Trailblazer
           # DEFAULT_STEPS =
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, builder: Circuit::Builder::Pipeline, steps: nil, id:, **options)
+          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, steps: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 # TODO: should set_target_ctx be done only once per entire in/out pipe?
@@ -21,16 +21,13 @@ module Trailblazer
               [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
             ]
 
-            pipe = build_circuit(builder: builder, steps: steps, **options)
+            pipe = build_circuit(steps, **options)
 
             create_node_for(pipe, write_name: write_name, read_name: read_name, id: id)
           end
 
-          def self.build_circuit(builder:, steps:)
-            # usually results in Circuit::Build.Pipeline(...)
-            pipe = builder.(
-              *steps
-            )# FIXME: make me a "template" that is created once at compile-time.
+          def self.build_circuit(steps, **)
+            Circuit::Builder.Circuit(*steps)
           end
 
           def self.create_node_for(circuit, write_name:, read_name:, id:)
@@ -45,7 +42,7 @@ module Trailblazer
           end
 
           class Conditioned < Filter
-            def self.build_circuit(**)
+            def self.build_circuit(*)
               provider_with_step_interface = :read_variable_from_application_ctx
 
               provider_node = Activity::Step.build(provider_with_step_interface, binary: false)
@@ -62,12 +59,12 @@ module Trailblazer
                 ]
               ]
 
-              Circuit::Builder::Circuit.(*circuit_steps)
+              Circuit::Builder.Circuit(*circuit_steps)
             end
           end
 
           class Defaulted < Filter
-            def self.build_circuit(default_provider:, **options)
+            def self.build_circuit(*, default_provider:, **options)
               # FIXME: playing with "inheritance" here
               conditioned_circuit = Conditioned.build_circuit
 
