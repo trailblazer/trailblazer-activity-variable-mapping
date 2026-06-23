@@ -106,19 +106,17 @@ module Trailblazer
             return ctx[read_name]
           end
 
-          def variable_present_in_application_ctx?(lib_ctx, flow_options, signal, **)
-            application_ctx = flow_options.fetch(:application_ctx) # FIXME: redundant with Adapter::StepInterface.
-
-            signal = application_ctx.key?(read_name) ? signal : Activity::Left
+          def variable_present_in_application_ctx?(lib_ctx, flow_options, signal, target_ctx:, **)
+            signal = target_ctx.key?(read_name) ? signal : Activity::Left
 
             return lib_ctx, flow_options, signal
           end
 
           # FIXME: should we use instance method instead?
-          def self.merge_outer_ctx(lib_ctx, flow_options, target_ctx, original_application_ctx:, **)
+          def self.merge_outer_ctx(lib_ctx, flow_options, signal, original_application_ctx:, target_ctx:, **)
             target_ctx = target_ctx.merge(outer_ctx: original_application_ctx)
 
-            return lib_ctx, flow_options, target_ctx
+            return lib_ctx.merge(target_ctx: target_ctx), flow_options, signal
           end
         end # Filter
       end

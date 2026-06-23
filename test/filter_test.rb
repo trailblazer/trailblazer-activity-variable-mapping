@@ -23,12 +23,13 @@ class FilterTest < Minitest::Spec
       ]
     )
 
-    lib_ctx, flow_options, signal = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+    lib_ctx, flow_options, signal = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
+      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"generator-1"} # DISCUSS: value-on-signal
 
-    assert_equal lib_ctx, {aggregate: {:my_slug=>"generator-1"}}
-    assert_equal flow_options, original_flow_options
+    assert_equal lib_ctx, {aggregate: {:my_slug=>"generator-1"}, target_ctx: original_target_ctx}
+    assert_equal flow_options, {}
   end
 
   it "invoke a callable, wrap its value with a hash" do
@@ -48,12 +49,13 @@ class FilterTest < Minitest::Spec
       ]
     )
 
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
+      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
-    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
-    assert_equal flow_options, original_flow_options
+    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
+    assert_equal flow_options, {}
   end
 
   it "invoke an {:instance_method}, wrap the value, FIXME: we're using the {args_for_provider} option!!!!!!!!!" do
@@ -79,12 +81,13 @@ class FilterTest < Minitest::Spec
       ]
     )
 
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
+      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
-    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
-    assert_equal flow_options, original_flow_options
+    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
+    assert_equal flow_options, {}
   end
 
   it "invoke a callable, no wrapping" do
@@ -97,12 +100,13 @@ class FilterTest < Minitest::Spec
       read_name: nil,
     )
 
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
+      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
-    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}}
-    assert_equal flow_options, original_flow_options
+    assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
+    assert_equal flow_options, {}
   end
 
   describe "Out" do
@@ -138,12 +142,19 @@ class FilterTest < Minitest::Spec
         ]
       )
 
+      # FIXME: allow merge_to_circuit_options and merge_to_lib_ctx (Scoped) node feature in one node!
+      my_original_node_circuit = Trailblazer::Circuit::Builder.Pipeline(
+        [:actual_out_logic, node: my_node]
+      )
+      my_node = Trailblazer::Circuit::Node::Scoped[:FIXME_scope_for_outer_ctx_merge, my_original_node_circuit, Trailblazer::Circuit::Processor, copy_to_outer_ctx: [:aggregate]]
+
       # raise "adds vs step_block?"
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
+        use_application_ctx: false, # TODO: remove.
         original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
-        flow_options: {application_ctx: {bogus: true, slug: "0x666"}}, # this is the ctx produced by the call_task.
+        target_ctx: original_target_ctx = {bogus: true, slug: "0x666"}.freeze, # this is the ctx produced by the call_task.
         terminus: expected_aggregate = {
           :my_slug => [
             1,
@@ -157,10 +168,11 @@ class FilterTest < Minitest::Spec
 
       assert_equal lib_ctx, {
         aggregate: expected_aggregate,
-        original_application_ctx: {:params=>{:id=>1}}
+        original_application_ctx: {:params=>{:id=>1}},
+        target_ctx: original_target_ctx # Note that we don't see {:outer_ctx} here. that's because we Scope the MergeToCircuitOptions node (WIP).
 
       }
-      assert_equal flow_options, {application_ctx: {bogus: true, slug: "0x666"}}
+      assert_equal flow_options, {}
     end
   end
 
@@ -173,13 +185,14 @@ class FilterTest < Minitest::Spec
         read_name: :slug,
       )
 
-      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
         **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
         terminus: {:slug=>"generator-1"},
         signal: Object
 
-      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
-      assert_equal flow_options, original_flow_options
+      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}, target_ctx: original_target_ctx} # we could read {:slug}.
+      assert_equal flow_options, {}
     end
 
     it "works even if the incoming signal is something other than {nil}" do
@@ -190,12 +203,13 @@ class FilterTest < Minitest::Spec
         read_name: :slug,
       )
 
-      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, flow_options: original_flow_options = {application_ctx: {slug: "generator-1"}}.freeze,
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
         **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
         terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
 
-      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}} # we could read {:slug}.
-      assert_equal flow_options, original_flow_options
+      assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}, target_ctx: original_target_ctx} # we could read {:slug}.
+      assert_equal flow_options, {}
     end
 
   end
@@ -209,22 +223,24 @@ class FilterTest < Minitest::Spec
     )
 
 
-    my_ctx = {global_id: 1}
+    my_ctx = {global_id: 1}.freeze
     # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
-      flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
+      target_ctx: original_target_ctx = my_ctx,
         **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 1}
 
-    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}}
+    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: my_ctx}
 
     my_ctx = {params: {id: 2}}
     # in this run, we let the defaulting logic kick in.
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
-      flow_options: original_flow_options = {application_ctx: my_ctx}.freeze,
+      target_ctx: original_target_ctx = my_ctx,
         **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 2}
 
-    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}}
+    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}, target_ctx: my_ctx}
   end
 end
