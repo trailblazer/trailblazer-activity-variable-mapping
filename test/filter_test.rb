@@ -96,8 +96,6 @@ class FilterTest < Minitest::Spec
     my_node = Filter.build_node(
       id: nil,
       args_for_provider: [my_input_provider, StepInterface],
-      write_name: nil, # FIXME.
-      read_name: nil,
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
@@ -117,7 +115,6 @@ class FilterTest < Minitest::Spec
         id: nil,
         args_for_provider: [my_input_provider],
         write_name: :my_slug,
-        read_name: nil,
         # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
       )
 

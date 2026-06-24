@@ -2,14 +2,15 @@ module Trailblazer
   class Activity
     module VariableMapping
       module Runtime
-        class Filter < Struct.new(:read_name, :write_name)
-          # DEFAULT_STEPS =
+        class Filter < Struct.new(:read_name, :write_name, keyword_init: true) # We *could* allow more options here.
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, read_name: nil, write_name: nil, steps: nil, id:, **options)
+          def self.build_node(args_for_provider:, steps: nil, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
-# TODO: should set_target_ctx be done only once per entire in/out pipe?
+
+            options_for_filter = options.slice(*members) # extract :read_name, :write_name.
+
             provider_node = Activity::Step.build(
               provider_with_step_interface,
               **options_for_provider_node, # DISCUSS: what's this?
@@ -23,16 +24,16 @@ module Trailblazer
 
             pipe = build_circuit(steps, **options)
 
-            create_node_for(pipe, write_name: write_name, read_name: read_name, id: id)
+            create_node_for(pipe, id: id, **options_for_filter)
           end
 
           def self.build_circuit(steps, **)
             Circuit::Builder.Circuit(*steps)
           end
 
-          def self.create_node_for(circuit, write_name:, read_name:, id:)
+          def self.create_node_for(circuit, id:, **options_for_filter)
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
-            filter_exec_context = Filter[read_name, write_name].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
+            filter_exec_context = Filter[**options_for_filter].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
             return Circuit::Node::MergeToCircuitOptions[id, circuit, Circuit::Processor, exec_context: filter_exec_context]
           end
