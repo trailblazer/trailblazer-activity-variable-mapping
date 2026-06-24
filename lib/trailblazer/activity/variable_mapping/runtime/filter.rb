@@ -5,29 +5,25 @@ module Trailblazer
         class Filter < Struct.new(:read_name, :write_name, keyword_init: true) # We *could* allow more options here.
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, id:, **options)
-            provider_with_step_interface = args_for_provider[0]
-            options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
+          def self.build_node(id:, **options)
+            circuit = build_circuit(**options)
 
             options_for_filter = options.slice(*members) # extract :read_name, :write_name.
 
+            create_node_for(circuit, id: id, **options_for_filter)
+          end
+
+          def self.build_circuit(args_for_step_build:, **options)
+            provider_arg, provider_options = args_for_step_build
+
             provider_node = Activity::Step.build(
-              provider_with_step_interface,
-              **options_for_provider_node, # DISCUSS: what's this?
+              provider_arg,
+              **provider_options, # e.g. {exec_context: Filter.new}
               binary: false
             )
 
-            steps = [ # FIXME: better defaulting, please, not very obvious.
-              [:invoke_provider, node: provider_node],
-              [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
-            ]
+            steps = rows_for_build(provider_node)
 
-            pipe = build_circuit(steps, **options)
-
-            create_node_for(pipe, id: id, **options_for_filter)
-          end
-
-          def self.build_circuit(steps, **)
             Circuit::Builder.Circuit(*steps)
           end
 
@@ -38,17 +34,26 @@ module Trailblazer
             return Circuit::Node::MergeToCircuitOptions[id, circuit, Circuit::Processor, exec_context: filter_exec_context]
           end
 
+          # FIXME: can we reuse nodes?
+          def self.rows_for_build(provider_node)
+            [
+              [:invoke_provider, node: provider_node],
+              [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
+            ]
+          end
+
           module Out
 
           end
 
           class Conditioned < Filter
-            def self.build_circuit(*)
-              provider_with_step_interface = :read_variable_from_application_ctx
+            def self.build_circuit(**options)
+              super(**options, args_for_step_build: [:read_variable_from_application_ctx, {}]) # the provider is {#read_variable_from_application_ctx}.
+            end
 
-              provider_node = Activity::Step.build(provider_with_step_interface, binary: false)
-
-              circuit_steps = [
+            # FIXME: we can reuse most nodes?
+            def self.rows_for_build(provider_node)
+              [
                 [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
                   connections: Circuit::Resolver::Conditional.new([Left], nil, :invoke_provider)], # Left means terminate.
                 [:invoke_provider, node: provider_node, # extract a value
@@ -59,15 +64,16 @@ module Trailblazer
                   connections: Circuit::Resolver::Fixed.new(nil) # terminus.
                 ]
               ]
-
-              Circuit::Builder.Circuit(*circuit_steps)
             end
+
+            # TODO: save memory by not creating identical circuits!
+            # CIRCUIT = build_node(id: :bla)
           end
 
           class Defaulted < Filter
-            def self.build_circuit(*, default_provider:, **options)
+            def self.build_node(default_provider:, id:, **options)
               # FIXME: playing with "inheritance" here
-              conditioned_circuit = Conditioned.build_circuit
+              conditioned_circuit = Conditioned.build_circuit(**options)
 
               default_provider_node = Activity::Step.build(default_provider, binary: false)
 
@@ -79,7 +85,12 @@ module Trailblazer
                 resolver: Circuit::Resolver::Fixed.new(:wrap_value_with_hash),
               ]
 
-              Circuit::Adds.(conditioned_circuit, adds_instruction)
+              circuit = Circuit::Adds.(conditioned_circuit, adds_instruction)
+
+              # FIXME: redundant.
+              options_for_filter = options.slice(*members) # extract :read_name, :write_name.
+
+              create_node_for(circuit, id: id, **options_for_filter)
             end
           end
 

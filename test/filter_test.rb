@@ -10,7 +10,7 @@ class FilterTest < Minitest::Spec
   it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
     my_node = Filter.build_node(
       id: nil,
-      args_for_provider: [:read_variable_from_application_ctx],
+      args_for_step_build: [:read_variable_from_application_ctx, {}],
       read_name: :slug,
       write_name: :my_slug,
     )
@@ -37,7 +37,7 @@ class FilterTest < Minitest::Spec
 
     my_node = Filter.build_node(
       id: nil,
-      args_for_provider: [my_input_provider],
+      args_for_step_build: [my_input_provider, {}],
       write_name: :my_slug,
     )
 
@@ -58,7 +58,7 @@ class FilterTest < Minitest::Spec
     assert_equal flow_options, {}
   end
 
-  it "invoke an {:instance_method}, wrap the value, FIXME: we're using the {args_for_provider} option!!!!!!!!!" do
+  it "invoke an {:instance_method}, wrap the value" do
     my_exec_context = Class.new do
       def downcase_slug(ctx, slug:, **)
         slug.upcase
@@ -68,7 +68,7 @@ class FilterTest < Minitest::Spec
 # FIXME: remove write_name where it's nil
     my_node = Filter.build_node(
       id: nil,
-      args_for_provider: [:downcase_slug, StepInterface::InstanceMethod, exec_context: my_exec_context],
+      args_for_step_build: [:downcase_slug, exec_context: my_exec_context],
       read_name: nil,
       write_name: :my_slug,
     )
@@ -95,7 +95,7 @@ class FilterTest < Minitest::Spec
 
     my_node = Filter.build_node(
       id: nil,
-      args_for_provider: [my_input_provider, StepInterface],
+      args_for_step_build: [my_input_provider, {}],
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
@@ -113,7 +113,7 @@ class FilterTest < Minitest::Spec
 
       my_node = Filter.build_node(
         id: nil,
-        args_for_provider: [my_input_provider],
+        args_for_step_build: [my_input_provider, {}],
         write_name: :my_slug,
         # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
       )
@@ -177,7 +177,7 @@ class FilterTest < Minitest::Spec
     it "writes value to aggregate if it's present (Conditioned)" do
       my_node = Filter::Conditioned.build_node(
         id: nil,
-        args_for_provider: [nil], # FIXME: we don't need this here.
+        args_for_step_build: [nil], # FIXME: we don't need this here.
         write_name: :slug,
         read_name: :slug,
       )
@@ -195,7 +195,6 @@ class FilterTest < Minitest::Spec
     it "works even if the incoming signal is something other than {nil}" do
       my_node = Filter::Conditioned.build_node(
         id: nil,
-        args_for_provider: [nil], # FIXME: we don't need this here.
         write_name: :slug,
         read_name: :slug,
       )
@@ -209,14 +208,41 @@ class FilterTest < Minitest::Spec
       assert_equal flow_options, {}
     end
 
+    it "Conditioned always uses the same circuit" do
+      skip
+      require "benchmark/memory"
+
+      Benchmark.memory do |x|
+        x.report("rebuild") do
+          my_node = Filter::Conditioned.build_node(
+            id: nil,
+            write_name: :slug,
+            read_name: :slug,
+          )
+
+          my_node_2 = Filter::Conditioned.build_node(
+            id: nil,
+            write_name: :slug,
+            read_name: :slug,
+          )
+        end
+
+        x.compare!
+      end
+
+      raise
+    end
   end
 
   it "defaults value if absent, and reads value otherwise (Defaulted)" do
     my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
     my_node = Filter::Defaulted.build_node(
-      id: nil,default_provider: my_provider_for_default, read_name: :global_id, write_name: :my_global_id,
-      args_for_provider: [nil] # FIXME: remove!
+      id: nil,
+      default_provider: my_provider_for_default,
+      read_name: :global_id,
+      write_name: :my_global_id,
+      # args_for_step_build: [nil] # FIXME: remove!
     )
 
 
