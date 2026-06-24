@@ -5,8 +5,8 @@ module Trailblazer
         class Filter < Struct.new(:read_name, :write_name, keyword_init: true) # We *could* allow more options here.
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(id:, **options)
-            circuit = build_circuit(**options)
+          def self.build_node(id:, circuit: nil, **options)
+            circuit = build_circuit(**options) unless circuit
 
             options_for_filter = options.slice(*members) # extract :read_name, :write_name.
 
@@ -71,7 +71,7 @@ module Trailblazer
           end
 
           class Defaulted < Filter
-            def self.build_node(default_provider:, id:, **options)
+            def self.build_node(default_provider:, **options)
               # FIXME: playing with "inheritance" here
               conditioned_circuit = Conditioned.build_circuit(**options)
 
@@ -87,10 +87,7 @@ module Trailblazer
 
               circuit = Circuit::Adds.(conditioned_circuit, adds_instruction)
 
-              # FIXME: redundant.
-              options_for_filter = options.slice(*members) # extract :read_name, :write_name.
-
-              create_node_for(circuit, id: id, **options_for_filter)
+              super(**options, circuit: circuit)
             end
           end
 
