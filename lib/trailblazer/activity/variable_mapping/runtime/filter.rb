@@ -5,7 +5,7 @@ module Trailblazer
         class Filter < Struct.new(:read_name, :write_name, keyword_init: true) # We *could* allow more options here.
           # This Node represents one step in the input/output pipe,
           # one filter.
-          def self.build_node(args_for_provider:, steps: nil, id:, **options)
+          def self.build_node(args_for_provider:, id:, **options)
             provider_with_step_interface = args_for_provider[0]
             options_for_provider_node = args_for_provider[2] || {} # FIXME: change public API of build_node.
 
@@ -17,7 +17,7 @@ module Trailblazer
               binary: false
             )
 
-            steps ||= [ # FIXME: better defaulting, please, not very obvious.
+            steps = [ # FIXME: better defaulting, please, not very obvious.
               [:invoke_provider, node: provider_node],
               [:add_value_to_aggregate, :add_value_to_aggregate, Circuit::Task::Adapter::LibInterface::InstanceMethod],
             ]
