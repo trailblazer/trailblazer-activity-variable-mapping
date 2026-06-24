@@ -42,6 +42,20 @@ module Trailblazer
             ]
           end
 
+          module Build # TODO: rename to Feature.
+            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
+          end
+
+          class Wrapped < Filter
+            def self.build_node(**options)
+              circuit = Filter.build_circuit(**options)
+
+              circuit = Circuit::Adds.(circuit, Build::WRAP_VALUE_WITH_HASH)
+
+              super(**options, circuit: circuit)
+            end
+          end
+
           module Out
 
           end
@@ -101,10 +115,6 @@ module Trailblazer
             value = {write_name => value}
 
             return lib_ctx, flow_options, value
-          end
-
-          module Build # TODO: rename to Feature.
-            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
           # DISCUSS: should we keep the following methods in a subclass of {Filter}?

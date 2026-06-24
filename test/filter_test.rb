@@ -8,19 +8,11 @@ class FilterTest < Minitest::Spec
   Filter = Trailblazer::Activity::VariableMapping::Runtime::Filter
 
   it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
-    my_node = Filter.build_node(
+    my_node = Filter::Wrapped.build_node(
       id: nil,
       args_for_step_build: [:read_variable_from_application_ctx, {}],
       read_name: :slug,
       write_name: :my_slug,
-    )
-
-    my_node = Trailblazer::Circuit::Node::Patch.(
-      my_node,
-      [],
-      adds: [
-        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
-      ]
     )
 
     lib_ctx, flow_options, signal = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
@@ -35,18 +27,10 @@ class FilterTest < Minitest::Spec
   it "invoke a callable, wrap its value with a hash" do
     my_input_provider = ->(ctx, slug:, **) { slug.upcase }
 
-    my_node = Filter.build_node(
+    my_node = Filter::Wrapped.build_node(
       id: nil,
       args_for_step_build: [my_input_provider, {}],
       write_name: :my_slug,
-    )
-
-    my_node = Trailblazer::Circuit::Node::Patch.(
-      my_node,
-      [],
-      adds: [
-        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
-      ]
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
@@ -66,19 +50,11 @@ class FilterTest < Minitest::Spec
     end.new
 
 # FIXME: remove write_name where it's nil
-    my_node = Filter.build_node(
+    my_node = Filter::Wrapped.build_node(
       id: nil,
       args_for_step_build: [:downcase_slug, exec_context: my_exec_context],
       read_name: nil,
       write_name: :my_slug,
-    )
-
-    my_node = Trailblazer::Circuit::Node::Patch.(
-      my_node,
-      [],
-      adds: [
-        Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
-      ]
     )
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
@@ -115,7 +91,6 @@ class FilterTest < Minitest::Spec
         id: nil,
         args_for_step_build: [my_input_provider, {}],
         write_name: :my_slug,
-        # adds: [Filter::Build::WRAP_VALUE_WITH_HASH], # FIXME: this is for Filter level, then we also have step_block on the Step level.
       )
 
       my_node = Trailblazer::Circuit::Node::Patch.(
