@@ -74,9 +74,12 @@ class ComposableTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run input_node, node: true, seq: [],
-      flow_options: {application_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []}}
+      use_application_ctx: false, # FIXME: remove.
+      target_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []},
+      signal: Object,
+      terminus: Object # the input pipe passes through the outer signal.
 
-    shadowed, mutable = flow_options[:application_ctx].decompose
+    shadowed, mutable = lib_ctx[:target_ctx].decompose
     assert_equal shadowed, original_ctx.merge(my_slug: "0X666", my_global_id: 1)
     assert_equal mutable, {}
   end

@@ -39,6 +39,7 @@ module Trailblazer
 
           # DISCUSS: the DSL maintains the concept of {:task_wrap_extensions}.
           #          that's why I name it {:adds_for_task_wrap} for now.
+          # @private
           def add_task_wrap_extensions(node_for_input, node_for_output, lib_ctx, *args, adds_for_task_wrap:, **options) # DISCUSS: signature is not ideal, yet.
             # DISCUSS: currently, a tw extension is ADDS instructions?
             vm_extensions = [

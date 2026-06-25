@@ -14,24 +14,22 @@ module Trailblazer
 
         # Merge all original ctx variables into the new input_ctx.
         # This happens when no In() is provided.
-        def default_input_ctx(lib_ctx, flow_options, signal, aggregate:, **)
-          default_ctx = flow_options[:application_ctx] # DISCUSS: couldn't this be optimized in a way that we simply use the original ctx as the immutable part?
-
-          lib_ctx[:aggregate] = aggregate.merge(default_ctx)
+        def default_input_ctx(lib_ctx, flow_options, signal, aggregate:, target_ctx:, **)
+          lib_ctx[:aggregate] = aggregate.merge(target_ctx)
 
           return lib_ctx, flow_options, signal
         end
 
         def build_context(lib_ctx, flow_options, signal, aggregate:, **)
-          new_application_ctx = Context.new(
+          new_target_ctx = Context.new(
             aggregate,
             {}, # mutable variables
             # flow_options[:context_options]
           )
 
-          flow_options = flow_options.merge(application_ctx: new_application_ctx)
+          # flow_options = flow_options.merge(application_ctx: new_application_ctx)
 
-          return lib_ctx, flow_options, signal
+          return lib_ctx.merge(target_ctx: new_target_ctx), flow_options, signal
         end
 
           # Lib interface.

@@ -15,8 +15,10 @@ module Trailblazer
             node_for_input(input_pipeline, id: id)
           end
 
+          # DISCUSS: extract target_ctx for entire pipe, once, here?
+          #          or, simply require it as an external dependency.
           def node_for_input(pipeline, id:, **)
-            Circuit::Node::Scoped[id, pipeline, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}]
+            Circuit::Node::Scoped[id, pipeline, Circuit::Processor, merge_to_lib_ctx: {aggregate: {}}, return_outer_signal: true, copy_to_outer_ctx: [:target_ctx]]
           end
 
           # Adds the default_ctx step as per option {:add_default_ctx}
