@@ -80,7 +80,7 @@ class TaskWrapPipesTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
-      original_target_ctx: {model: Module},
+      original_target_ctx: {model: Module, controller: true},
       use_application_ctx: false, # FIXME: remove.
       target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true, params: {id: 1}}, {mutable: "here", slug: "0x666"}.freeze),
       signal: Object,
@@ -88,6 +88,54 @@ class TaskWrapPipesTest < Minitest::Spec
 
     assert_equal lib_ctx.keys, [:original_target_ctx, :target_ctx]
     assert_equal lib_ctx.class, Hash
-    assert_equal lib_ctx[:target_ctx], {:model=>1, :my_slug=>"0X666", :mutable=>"here", :slug=>"0x666"}
+    # Merge original_ctx with aggregate and mutable.
+    assert_equal lib_ctx[:target_ctx], {:model=>1, :controller=>true, :my_slug=>"0X666", :mutable=>"here", :slug=>"0x666"}
+  end
+
+  it "Build.Output add_default_ctx: false" do
+    array_of_filter_rows = [
+      [:a, node: my_node_a],
+      [:b, node: my_node_b],
+    ]
+
+    output_node = Trailblazer::Activity::VariableMapping::Build::Output.(
+      array_of_filter_rows,
+      add_default_ctx: false # DISCUSS: this means "don't merge the inner_ctx's mutable into the outer"?
+    )
+
+    lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
+      original_target_ctx: {model: Module, params: {}},
+      use_application_ctx: false, # FIXME: remove.
+      target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true, params: {id: 1}}, {mutable: "here", slug: "0x666"}.freeze),
+      signal: Object,
+      terminus: Object # the input pipe passes through the outer signal.
+
+    assert_equal lib_ctx.keys, [:original_target_ctx, :target_ctx]
+    assert_equal lib_ctx.class, Hash
+    assert_equal lib_ctx[:target_ctx], {
+      :model=>1,          # model is overridden by one Out filter.
+      :my_slug=>"0X666",  # the other Out filter provides my_slug
+      params: {}, # from the original ctx.
+    }
+  end
+
+  it "Build.Output {add_default_ctx: false} means we want whitelisting, without any Out filter, the ctx won't change" do
+    array_of_filter_rows = []
+
+    output_node = Trailblazer::Activity::VariableMapping::Build::Output.(
+      array_of_filter_rows,
+      add_default_ctx: false # DISCUSS: this means "don't merge the inner_ctx's mutable into the outer"?
+    )
+
+    lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
+      original_target_ctx: {model: Module},
+      use_application_ctx: false, # FIXME: remove.
+      target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true}, {mutable: "here"}.freeze),
+      signal: Object,
+      terminus: Object # the input pipe passes through the outer signal.
+
+    assert_equal lib_ctx.keys, [:original_target_ctx, :target_ctx]
+    assert_equal lib_ctx.class, Hash
+    assert_equal lib_ctx[:target_ctx], {model: Module}
   end
 end
