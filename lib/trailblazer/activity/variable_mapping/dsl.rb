@@ -71,7 +71,7 @@ module Trailblazer
               id,
               node: Runtime::Filter.build_node(
                 id: id, # DISCUSS: do we want the ID in da node?
-                args_for_provider: [provider],
+                args_for_step_build: [provider, {}],
                 **options # FIXME: what is this exactly? always :read_name and :write_name?
               ),
             ]
@@ -82,11 +82,11 @@ module Trailblazer
           def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"in.#{read_name} > #{write_name}")
             node = Runtime::Filter.build_node(
               id:                 id,
-              args_for_provider:  [:read_variable_from_application_ctx], # Filter::Runtime#read_variable_from_application_ctx
+              args_for_step_build:  [:read_variable_from_application_ctx, {}], # Filter::Runtime#read_variable_from_application_ctx
               read_name:          read_name,
               write_name:         write_name,
             )
-
+# fixme: WE CAN USE wRAPPED HERE
             node = Trailblazer::Circuit::Node::Patch.(
               node,
               [],
@@ -151,11 +151,11 @@ module Trailblazer
         class Inject < Tuple # FIXME: now I'm mixing DSL and building
           def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"inject.#{provider}")
             inject_node = Runtime::Filter::Defaulted.build_node(
-              id:                 id,
-              args_for_provider:  [:read_variable_from_application_ctx],
-              read_name:          read_name,
-              write_name:         write_name,
-              default_provider:   provider,
+              id:                   id,
+              args_for_step_build:  [:read_variable_from_application_ctx, {}],
+              read_name:            read_name,
+              write_name:           write_name,
+              default_provider:     provider,
             )
 
             # Inject provider always means we need hash wrap.
@@ -179,8 +179,6 @@ module Trailblazer
               id:                 id,
               read_name:          read_name,
               write_name:         write_name,
-
-              args_for_provider: [nil] # FIXME
             )
 
             return id, {node: node}

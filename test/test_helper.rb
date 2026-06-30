@@ -11,4 +11,6 @@ Minitest::Spec.class_eval do
   def Pipeline(*args)
     Trailblazer::Circuit::Builder.Pipeline(*args)
   end
+
+  CU = Trailblazer::Core::Utils
 end

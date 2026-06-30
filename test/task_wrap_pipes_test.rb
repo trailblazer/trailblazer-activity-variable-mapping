@@ -2,6 +2,16 @@ require "test_helper"
 
 # Here, we test the combined behavior of a filter chain with regards to the {:aggregate} it produces.
 # It's still unclear whether i should use only Wrapped filters or if the filter types don't really care.
+#
+# We test:
+#  1. filters in a sequence
+#  2. filters receive the target_ctx
+#  3. filters can override values from a former filter
+#  4. we can change behavior via :add_default_ctx.
+#  5. all the above for Input and Output pipe.
+#
+# NOTE: this is a fully-fledged unit test. here, i want to cover most behavior of the Input and Output pipe,
+#       without going through the DSL.
 class TaskWrapPipesTest < Minitest::Spec
   let(:my_node_a) do
     my_input_provider = ->(ctx, slug:, **) { {my_slug: slug.upcase} }
@@ -80,6 +90,30 @@ class TaskWrapPipesTest < Minitest::Spec
     ]
   end
 
+  it "filters receive the {:target_ctx}" do
+    my_filter = ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+
+    array_of_filter_rows = [
+      [:a,  node: filter(:a, &my_filter) ],
+      [:b,  node: filter(:b, &my_filter)],
+    ]
+
+    output_node = Trailblazer::Activity::VariableMapping::Build::Input.(array_of_filter_rows, add_default_ctx: false)
+
+    lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
+      # original_target_ctx: {x: 4},
+      use_application_ctx: false, # FIXME: remove.
+      target_ctx: {from_outside: true}.freeze,
+      signal: Object, terminus: Object # the input pipe passes through the outer signal.
+
+
+    assert_equal lib_ctx.keys, [:target_ctx]
+    assert_equal lib_ctx[:target_ctx].class, Trailblazer::Activity::VariableMapping::Context
+    assert_equal lib_ctx[:target_ctx].decompose, [
+      {:a=>["{:from_outside=>true}", "{:from_outside=>true}"], :b=>["{:from_outside=>true}", "{:from_outside=>true}"]}, {}
+    ]
+  end
+
   def filter(write_name, &provider)
     Trailblazer::Activity::VariableMapping::Runtime::Filter::Wrapped.build_node(
       id: nil,
@@ -92,7 +126,7 @@ class TaskWrapPipesTest < Minitest::Spec
     it "a later filter can override an earlier value" do
       array_of_filter_rows = [
         [:a,  node: filter(:a) { |ctx, value_for_a:, **| value_for_a }],
-        [:a1, node: filter(:a) { |ctx, value_for_a:, **| value_for_a + 10 }],
+        [:a1, node: filter(:a) { |ctx, value_for_a:, **| value_for_a + 10 }], # we're overriding {:a}.
         [:b,  node: filter(:b) { |ctx, value_for_b:, **| value_for_b }],
       ]
 
@@ -104,9 +138,10 @@ class TaskWrapPipesTest < Minitest::Spec
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new(
             {from_outside: true},
             {
-              mutable: "here",
-              value_for_a: 1, value_for_b: 2
-              }.freeze # this is dropped as we use {add_default_ctx: false}.
+              mutable: "here", # this is dropped as we use {add_default_ctx: false}.
+              value_for_a: 1,
+              value_for_b: 2
+            }.freeze
           ),
           signal: Object, terminus: Object # the input pipe passes through the outer signal.
 
@@ -117,6 +152,37 @@ class TaskWrapPipesTest < Minitest::Spec
         x: 4, # original.
         a: 11, # the second filter wins.
         b: 2  # other filter
+      }
+    end
+
+    it "filters receive the {:target_ctx}" do
+      my_filter = ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+
+      array_of_filter_rows = [
+        [:a,  node: filter(:a, &my_filter) ],
+        [:b,  node: filter(:b, &my_filter)],
+      ]
+
+      output_node = Trailblazer::Activity::VariableMapping::Build::Output.(array_of_filter_rows, add_default_ctx: false)
+
+      lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
+        original_target_ctx: {x: 4},
+        use_application_ctx: false, # FIXME: remove.
+        target_ctx: Trailblazer::Activity::VariableMapping::Context.new(
+            {from_outside: true},
+            {
+              mutable: "here",
+            }.freeze
+          ),
+          signal: Object, terminus: Object # the input pipe passes through the outer signal.
+
+
+      assert_equal lib_ctx.keys, [:original_target_ctx, :target_ctx]
+      assert_equal lib_ctx.class, Hash
+      assert_equal lib_ctx[:target_ctx], {
+        x: 4, # original.
+        a: ["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}>", "{:from_outside=>true, :mutable=>\"here\"}"],
+        :b=>["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}>", "{:from_outside=>true, :mutable=>\"here\"}"]
       }
     end
 
@@ -180,7 +246,7 @@ class TaskWrapPipesTest < Minitest::Spec
       )
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
-        original_target_ctx: {model: Module},
+        original_target_ctx: {x: 4},
         use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true}, {mutable: "here"}.freeze),
         signal: Object,
@@ -188,7 +254,7 @@ class TaskWrapPipesTest < Minitest::Spec
 
       assert_equal lib_ctx.keys, [:original_target_ctx, :target_ctx]
       assert_equal lib_ctx.class, Hash
-      assert_equal lib_ctx[:target_ctx], {model: Module}
+      assert_equal lib_ctx[:target_ctx], {x: 4}
     end
 
   end
