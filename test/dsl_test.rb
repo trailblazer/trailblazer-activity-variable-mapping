@@ -41,7 +41,7 @@ class DslIntegrationTest < Minitest::Spec
   let(:dsl) { Trailblazer::Activity::VariableMapping::DSL }
 
   describe "#Inject" do
-    let(:options) { {dsl::Inject() => [:http]} }
+    let(:options) { {dsl.Inject() => [:http]} }
 
     it "with empty ctx, nothing gets injected" do
       assert_dsl **options, expected: {captured: ["{}", "{}"]}
@@ -57,6 +57,35 @@ class DslIntegrationTest < Minitest::Spec
 
     it "injected variable can be {nil}" do
       assert_dsl **options, expected: {captured: ["{:random=>1, :http=>nil}", "{:random=>1, :http=>nil}"]}, target_ctx: {random: 1, http: nil}
+    end
+
+    it "we can have multiple Inject with one configured variable" do
+      options = {
+        **self.options,
+        dsl.Inject() => [:db],
+        dsl.Inject() => [:logger],
+      }
+
+      assert_dsl **options,
+        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
+
+      # test that :db is also injected.
+      assert_dsl **options,
+        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
+    end
+
+    it "we can also configure multiple variables" do
+      options = {
+        **self.options,
+        dsl.Inject() => [:db, :logger]
+      }
+
+      assert_dsl **options,
+        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
+
+      # test that :db is also injected.
+      assert_dsl **options,
+        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
     end
 
     it "without Out(), {pollute} is visible outside" do
@@ -77,33 +106,38 @@ class DslIntegrationTest < Minitest::Spec
         target_ctx: {pollute: true, http: Object}
     end
 
-    it "we can have multiple Inject with one configured variable" do
+    it "with Out() => [], all private variables are discarded" do
       options = {
         **self.options,
-        dsl::Inject() => [:db],
-        dsl::Inject() => [:logger],
+        dsl.Out() => []
       }
 
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
-
-      # test that :db is also injected.
-      assert_dsl **options,
-        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
+        expected: {}, target_ctx: {pollute: true}
     end
 
-    it "we can also configure multiple variables" do
+    it "with Out() => [], injected variables are discarded, too!" do
       options = {
         **self.options,
-        dsl::Inject() => [:db, :logger]
+        dsl.Out() => []
       }
 
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
+        expected: {}, target_ctx: {pollute: true, http: Object}
+    end
 
-      # test that :db is also injected.
+    it "injected variables can be exposed" do
+      options = {
+        **self.options,
+        dsl.Out() => [:http]
+      }
+
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
+        expected: {http: Object}, target_ctx: {pollute: true, http: Object}
+
+      # However, they're always exposed, no Conditional, yet. We'd need Outject().
+      assert_dsl **options,
+        expected: {http: nil}, target_ctx: {pollute: true}
     end
   end
 
