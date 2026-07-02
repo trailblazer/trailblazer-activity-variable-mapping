@@ -152,7 +152,6 @@ class FilterTest < Minitest::Spec
     it "writes value to aggregate if it's present (Conditioned)" do
       my_node = Filter::Conditioned.build_node(
         id: nil,
-        args_for_step_build: [nil], # FIXME: we don't need this here.
         write_name: :slug,
         read_name: :slug,
       )
@@ -209,36 +208,83 @@ class FilterTest < Minitest::Spec
     end
   end
 
-  it "defaults value if absent, and reads value otherwise (Defaulted)" do
-    my_provider_for_default = ->(ctx, params:, **) { params[:id] }
+  describe "Defaulted" do
+    it "defaults value if absent, and reads value otherwise (Defaulted)" do
+      my_provider_for_default = ->(ctx, params:, **) { params[:id] }
 
-    my_node = Filter::Defaulted.build_node(
-      id: nil,
-      default_provider: my_provider_for_default,
-      read_name: :global_id,
-      write_name: :my_global_id,
-      # args_for_step_build: [nil] # FIXME: remove!
-    )
+      my_node = Filter::Defaulted.build_node(
+        id: nil,
+        args_for_default_provider: [my_provider_for_default, {}],
+        read_name: :global_id,
+        write_name: :my_global_id,
+      )
 
+      original_target_ctx = {global_id: 1}.freeze
 
-    my_ctx = {global_id: 1}.freeze
-    # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
-      target_ctx: original_target_ctx = my_ctx,
+      # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
         use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 1}
 
-    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: my_ctx}
+      assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
 
-    my_ctx = {params: {id: 2}}
-    # in this run, we let the defaulting logic kick in.
-    lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
-      target_ctx: original_target_ctx = my_ctx,
+      original_target_ctx = {params: {id: 2}}
+      # in this run, we let the defaulting logic kick in.
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
         use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 2}
 
-    assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}, target_ctx: my_ctx}
+      assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}, target_ctx: original_target_ctx}
+    end
+
+    it "accepts {:instance_method} as provider" do
+      def my_provider_for_default(ctx, params:, **)
+        params[:id]
+      end
+
+      my_node = Filter::Defaulted.build_node(
+        id: nil,
+        args_for_default_provider: [:my_provider_for_default, {exec_context: self}],
+        read_name: :global_id,
+        write_name: :my_global_id,
+      )
+
+      original_target_ctx = {params: {id: 1}}.freeze
+
+      # only test the case where we call the {:instance_method} provider.
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        target_ctx: original_target_ctx,
+        **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
+        terminus: {my_global_id: 1}
+
+      assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
+    end
+
+    it "Defaulted doesn't run block when variable is present" do
+      my_provider_for_default = ->(*) { raise }
+
+        my_node = Filter::Defaulted.build_node(
+          id: nil,
+          args_for_default_provider: [my_provider_for_default, {}],
+          read_name: :global_id,
+          write_name: :my_global_id,
+        )
+
+        original_target_ctx = {global_id: 1}.freeze
+
+        # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
+        lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+          target_ctx: original_target_ctx,
+          **filter_lib_ctx_options,
+          use_application_ctx: false, # FIXME: remove.
+          terminus: {my_global_id: 1}
+
+        assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
+    end
   end
 end

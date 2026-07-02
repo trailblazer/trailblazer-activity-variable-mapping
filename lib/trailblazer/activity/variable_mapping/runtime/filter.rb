@@ -85,11 +85,13 @@ module Trailblazer
           end
 
           class Defaulted < Filter
-            def self.build_node(default_provider:, **options)
+            def self.build_node(args_for_default_provider:, **options)
               # FIXME: playing with "inheritance" here
               conditioned_circuit = Conditioned.build_circuit(**options)
 
-              default_provider_node = Activity::Step.build(default_provider, binary: false)
+              default_provider, default_provider_options = args_for_default_provider
+
+              default_provider_node = Activity::Step.build(default_provider, **default_provider_options, binary: false) # FIXME: we don't want signal handling here at all.
 
               adds_instruction = [
                 :invoke_default_provider,
