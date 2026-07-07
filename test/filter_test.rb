@@ -286,5 +286,36 @@ class FilterTest < Minitest::Spec
 
         assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
     end
+
+    it "Override" do
+      my_provider = ->(ctx, params:, **) { params[:id] }
+
+      my_node = Filter::Override.build_node(
+        id: nil,
+        args_for_step_build: [my_provider, {}],
+        write_name: :my_id,
+      )
+
+      target_ctx = {params: {id: 1}.freeze}.freeze
+
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        target_ctx: target_ctx,
+        **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
+        terminus: {my_id: 1}
+
+      assert_equal lib_ctx, {:aggregate=>{:my_id=>1}, target_ctx: target_ctx}
+
+      # we still add our :my_id to aggregate, even if it's present
+      target_ctx = {my_id: 2, params: {id: 1}.freeze}.freeze
+
+      lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
+        target_ctx: target_ctx,
+        **filter_lib_ctx_options,
+        use_application_ctx: false, # FIXME: remove.
+        terminus: {my_id: 1}
+
+      assert_equal lib_ctx, {:aggregate=>{:my_id=>1}, target_ctx: target_ctx}
+    end
   end
 end

@@ -6,7 +6,7 @@ module Trailblazer
           # This Node represents one step in the input/output pipe,
           # one filter.
           def self.build_node(id:, circuit: nil, **options)
-            circuit = build_circuit(**options) unless circuit
+            circuit = build_circuit(**options) unless circuit # FIXME: do we need the injection of {:circuit}?
 
             options_for_filter = options.slice(*members) # extract :read_name, :write_name.
 
@@ -50,7 +50,7 @@ module Trailblazer
             def self.build_node(**options)
               circuit = Filter.build_circuit(**options)
 
-              circuit = Circuit::Adds.(circuit, Build::WRAP_VALUE_WITH_HASH)
+              circuit = Circuit::Adds.(circuit, Build::WRAP_VALUE_WITH_HASH) # DISCUSS: extract this, so we could use it to insert this step.
 
               super(**options, circuit: circuit)
             end
@@ -104,6 +104,14 @@ module Trailblazer
               circuit = Circuit::Adds.(conditioned_circuit, adds_instruction)
 
               super(**options, circuit: circuit)
+            end
+          end
+
+          class Override < Filter
+            def self.build_circuit(*, **)
+              circuit = super
+
+              circuit = Circuit::Adds.(super, Build::WRAP_VALUE_WITH_HASH)
             end
           end
 

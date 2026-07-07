@@ -11,11 +11,15 @@ module Trailblazer
           module_function
 
           # NOTE: this is sitting in DSL because we're processing Tuples here, which is a DSL concept (?).
-          def node_for_tuples(tuples, add_default_ctx:, build_class: Build::Input) # at this point, we already know if there are In(), or only Inject().
-            # raise tuples.inspect
-
+          def convert_tuples_to_node(tuples, add_default_ctx:, build_class: Build::Input, exec_context_for_provider:) # at this point, we already know if there are In(), or only Inject().
             # produce an array of [id, #<Filter>] "rows", they make up the input/output pipe.
-            filter_rows = tuples.flat_map { |left_tuple, right_option| left_tuple.(right_option) }
+            filter_rows = tuples.flat_map do |left_tuple, right_option|
+              # Build the actual Filter instance.
+              left_tuple.(
+                right_option, # sometimes this is [:model], sometimes it's a callable, etc.
+                exec_context_for_provider: exec_context_for_provider # this is usually the operation instance, the exec_context for :instance_method providers by the user. DISCUSS: we set that per filter pipe?
+              )
+            end
 
             # Create a Pipeline with the filter ary above and some additional behavior (eg merging outer ctx).
             build_class.(filter_rows, add_default_ctx: add_default_ctx) # returns node
@@ -27,7 +31,7 @@ module Trailblazer
 
           module_function
 
-          def node_for_tuples(tuples, add_default_ctx:, build_class: Build::Output)
+          def convert_tuples_to_node(tuples, build_class: Build::Output, **)
             super # DISCUSS: use inheritance or delegation or module?
           end
         end
@@ -47,7 +51,7 @@ module Trailblazer
           # DISCUSS: this is logic run much later in the DSL compilation
           #          problem here is, we have the "Struct" nature as a real DSL object,
           #          and the DSL conversion nature of this object implemented in #call et al.
-          def call(right_options) # FIXME: now I'm mixing DSL and building.
+          def call(right_options, **options_from_dsl) # FIXME: now I'm mixing DSL and building.
 
             if right_options.is_a?(Array)
               right_options = right_options.collect { |read_name| [read_name, read_name] }.to_h
@@ -62,16 +66,16 @@ module Trailblazer
             end
 
             # right-hand is a provider: ->(*) { ... }
-            [build_filter_node_row_for_provider(right_options, **@options)] # @options is usually {read_name: :slug}
+            [build_filter_node_row_for_provider(right_options, **@options, **options_from_dsl)] # @options is usually {read_name: :slug}
           end
 
           # In() with "callable"/provider never needs hash wrap.
-          def build_filter_node_row_for_provider(provider, id: :"in.#{provider}", **options) # we don't need {write_name} etc here.
+          def build_filter_node_row_for_provider(provider, id: :"in.#{provider}", exec_context_for_provider:, filter: Runtime::Filter, **options) # we don't need {write_name} etc here.
             [
               id,
-              node: Runtime::Filter.build_node(
+              node: filter.build_node( # that's {Runtime::Filter.build_node}.
                 id: id, # DISCUSS: do we want the ID in da node?
-                args_for_step_build: [provider, {}],
+                args_for_step_build: [provider, {exec_context: exec_context_for_provider}],
                 **options # FIXME: what is this exactly? always :read_name and :write_name?
               ),
             ]
@@ -149,29 +153,18 @@ module Trailblazer
         #               2. "with condition" and default.
         #               3. override: like 2. with a condition always {false}.
         class Inject < Tuple # FIXME: now I'm mixing DSL and building
-          def build_filter_node_row_for_provider(provider, read_name:, write_name: read_name, id: :"inject.#{provider}")
+          def build_filter_node_row_for_provider(provider_for_default, read_name:, write_name: read_name, id: :"inject.#{provider_for_default}", exec_context_for_provider:)
             inject_node = Runtime::Filter::Defaulted.build_node(
               id:                   id,
-              args_for_step_build:  [:read_variable_from_application_ctx, {}],
               read_name:            read_name,
               write_name:           write_name,
-              default_provider:     provider,
+              args_for_default_provider:     [
+                provider_for_default,
+                exec_context: exec_context_for_provider # DISCUSS: hm, we don't need this for callables, only :instance_method.
+              ],
             )
-
-            # Inject provider always means we need hash wrap.
-            inject_node = self.class.add_wrap_value_step(inject_node)
 
             return id, {node: inject_node}
-          end
-
-          def self.add_wrap_value_step(node)
-            node = Trailblazer::Circuit::Node::Patch.(
-              node,
-              [],
-              adds: [
-                Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH
-              ]
-            )
           end
 
           def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"inject.#{read_name} > #{write_name}")
@@ -187,18 +180,10 @@ module Trailblazer
           # Override is an Inject filter that is always called,
           # regardless of the variable presence (just like In).
           class Override < Inject # NOTE: Experimental!
-            def call(provider_from_user)
-              read_name   = @options.fetch(:read_name)
-              write_name  = read_name
-
+            def call(provider_from_user, **options)
               # since "override" means "always invoke provider", we can reuse {In} logic.
-              id, node_hsh = In.new().build_filter_node_row_for_provider(provider_from_user, read_name: read_name, write_name: write_name)
 
-              node = Inject.add_wrap_value_step(node_hsh[:node])
-
-              return [
-                [id, {node: node}]
-              ]
+              In.new(**@options).call(provider_from_user, **options, filter: Runtime::Filter::Override) # FIXME: improve architecture: we don't want the entire #call logic, but only {#build_filter_node_row_for_provider}.
             end
           end
         end # Inject
@@ -206,6 +191,7 @@ module Trailblazer
         def self.In(variable_name = nil, tuple_class = In, **left_user_options)
           tuple_class.new(
             read_name: variable_name, # DISCUSS: we're storing the variable_name here, in In() we never have one.
+            write_name: variable_name, # FIXME:
             **left_user_options,
           )
         end
