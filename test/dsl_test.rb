@@ -191,8 +191,7 @@ class DslIntegrationTest < Minitest::Spec
     end
   end
 
-  # TODO: override
-  describe "Inject(:variable, override: true) => ->(*) { snippet }" do
+  describe "Inject(:variable, override: true) => :my_inject_defaulter" do
     let(:options) do
       options = {
         dsl.Inject(:http, override: true) => :my_inject_defaulter
@@ -226,6 +225,37 @@ class DslIntegrationTest < Minitest::Spec
     end
   end
 
+  describe "Inject(:variable, override: true) => ->(*) { snippet }" do
+    let(:options) do
+      options = {
+        dsl.Inject(:http, override: true) => ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+      }
+    end
+
+    it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
+      what_filter_sees = ["{:params=>{}}", "{:params=>{}}"]
+
+      assert_dsl **options,
+        exec_context_for_provider: self,
+        expected: {
+          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is defaulted.
+        }, target_ctx: {params: {}}
+    end
+
+    it "if present, it is still defaulted as we're overriding" do
+      # the override filter sees the "original" {:http} variable.
+      what_filter_sees = ["{:params=>{}, :http=>Object}", "{:params=>{}, :http=>Object}"]
+
+      assert_dsl **options,
+        exec_context_for_provider: self,
+        expected: {
+          # the task sees what the override filter sees.
+          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is still defaulted.
+        }, target_ctx: {params: {}, http: Object}
+    end
+  end
+
+  # DISCUSS: the idea of this block is to test "generic" behavior, unrelated to the type of In() and type of the provider
   describe "In()" do
     let(:options) { {dsl.In() => [:http]} }
 
@@ -233,14 +263,16 @@ class DslIntegrationTest < Minitest::Spec
       assert_dsl **options, expected: {captured: ["{:http=>nil}", "{:http=>nil}"]}
     end
 
-    it "In() will pass {:http} if it is present in ctx" do
+    it "In() passes {:http}" do
       assert_dsl **options, expected: {captured: ["{:http=>Object}", "{:http=>Object}"]},
         target_ctx: {http: Object}
     end
 
-
-
-
+    it "In() variables don't bleed into the following step / the outside" do
+      assert_dsl **options,
+        expected: {captured: ["{:http=>nil}", "{:http=>nil}"]}, # we don't see anything but {:captured} on the outside.
+        target_ctx: {}
+    end
   end
 
   describe "In() => ->{}" do
@@ -275,6 +307,93 @@ class DslIntegrationTest < Minitest::Spec
         expected: {captured: ["{:a=>#{what_filter_a_sees}}", "{:a=>#{what_filter_a_sees}}"]},
         target_ctx: {from_outside: 1}
     end
+  end
+
+  describe "In() => {:model => :my_model}" do
+    it "maps variable names" do
+      options = {
+        dsl.In() => {
+          :params => :my_params,
+          :current_user => :my_user
+        },
+      }
+
+      assert_dsl **options,
+        target_ctx: {from_outside: 1, params: {}},
+        expected: {captured: [ctx = "{:my_params=>{}, :my_user=>nil}", ctx]}
+    end
+  end
+
+  describe "Out() => ->(*) { snippet }" do
+    def my_output(ctx, **kws)
+      {my_out: [ctx.class, CU.inspect(ctx.to_h), CU.inspect(kws)]}
+    end
+
+    it "without In() or Inject(), we see all outside variables" do
+      options = {
+        dsl.Out() => method(:my_output),
+      }
+
+      what_step_sees = "{:params=>{}, :model=>Object}"
+
+      assert_dsl **options,
+        # exec_context_for_provider: self,
+        target_ctx: {params: {}, model: Object},
+        expected: {
+          :my_out=>[
+            Trailblazer::Activity::VariableMapping::Context, # in the Out() filter, we see a Context instance from In().
+            # the step sees all variabes from outside (:captured).
+            ctx = "{:params=>{}, :model=>Object, :captured=>[#{what_step_sees.inspect}, #{what_step_sees.inspect}]}",
+            ctx
+          ]
+        }
+    end
+
+    it "Out() => [] to whitelist variables to expose" do
+      options = {
+        dsl.Out() => [:captured],
+      }
+
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {
+          # we only see {:captured}
+          :captured=>[
+            "{:params=>{}, :pollute=>true}",
+            "{:params=>{}}"
+          ]
+        }
+
+      # TODO: move this somewhere?
+      # let's cross-test if {:pollute} is actually written to ctx.
+      assert_dsl dsl.Out() => [:pollute],
+        target_ctx: {params: {}, pollute: true},
+        expected: {
+          # we only see {:captured}
+          :pollute=>1
+        }
+    end
+
+    it "we can expose variables that don't exist" do
+
+    end
+
+    it "we can expose nothing, discarding all variables" do
+
+    end
+
+    it "we can expose Inject() variables" do
+
+    end
+
+    it "we can expose In() variables" do
+
+    end
+  end
+
+  # Idea here: test generic behavior of ordering etc, properties of the pipeline character.
+  describe "#what" do
+
   end
 
 
