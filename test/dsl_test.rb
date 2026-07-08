@@ -349,6 +349,26 @@ class DslIntegrationTest < Minitest::Spec
         }
     end
 
+    it "Out() => :instance_method" do
+      options = {
+        dsl.Out() => :my_output,
+      }
+
+      what_step_sees = "{:params=>{}, :model=>Object}"
+
+      assert_dsl **options,
+        # exec_context_for_provider: self,
+        target_ctx: {params: {}, model: Object},
+        expected: {
+          :my_out=>[
+            Trailblazer::Activity::VariableMapping::Context, # in the Out() filter, we see a Context instance from In().
+            # the step sees all variabes from outside (:captured).
+            ctx = "{:params=>{}, :model=>Object, :captured=>[#{what_step_sees.inspect}, #{what_step_sees.inspect}]}",
+            ctx
+          ]
+        }
+    end
+
     it "Out() => [] to whitelist variables to expose" do
       options = {
         dsl.Out() => [:captured],
@@ -369,25 +389,70 @@ class DslIntegrationTest < Minitest::Spec
       assert_dsl dsl.Out() => [:pollute],
         target_ctx: {params: {}, pollute: true},
         expected: {
-          # we only see {:captured}
+          # we only see {:pollute}
           :pollute=>1
         }
     end
 
-    it "we can expose variables that don't exist" do
+    it "Out() => {} for mapping" do
+      options = {
+        dsl.Out() => {:captured => :my_captured},
+      }
 
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {
+          # we only see {:my_captured}
+          :my_captured=>[
+            "{:params=>{}, :pollute=>true}",
+            "{:params=>{}}"
+          ]
+        }
+    end
+
+    it "we can expose variables that don't exist" do
+      options = {
+        dsl.Out() => [:i_dont_exist]
+      }
+
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {
+          # variable is {nil}.
+          :i_dont_exist=>nil
+        }
     end
 
     it "we can expose nothing, discarding all variables" do
+      options = {
+        dsl.Out() => []
+      }
 
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {}
     end
 
     it "we can expose Inject() variables" do
+      options = {
+        dsl.Inject(:slug) => ->(*) { "snippet" },
+        dsl.Out() => [:slug]
+      }
 
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {slug: "snippet"}
     end
 
     it "we can expose In() variables" do
+      options = {
+        dsl.In() => ->(*) { {slug: "snippet"} },
+        dsl.Out() => [:slug]
+      }
 
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {slug: "snippet"}
     end
   end
 
