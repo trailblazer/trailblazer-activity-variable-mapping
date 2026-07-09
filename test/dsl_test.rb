@@ -410,6 +410,22 @@ class DslIntegrationTest < Minitest::Spec
         }
     end
 
+    it "Out(:pass_outer_ctx) => ->(*) { snippet }" do
+      options = {
+        dsl.Out(:pass_outer_ctx) => ->(ctx, outer_ctx:, **kws) { [CU.inspect(ctx), CU.inspect(outer_ctx), CU.inspect(kws)] }
+      }
+
+      assert_dsl **options,
+        target_ctx: {params: {}, pollute: true},
+        expected: {
+          # we only see {:my_captured}
+          :my_captured=>[
+            "{:params=>{}, :pollute=>true}",
+            "{:params=>{}}"
+          ]
+        }
+    end
+
     it "we can expose variables that don't exist" do
       options = {
         dsl.Out() => [:i_dont_exist]

@@ -85,42 +85,17 @@ class FilterTest < Minitest::Spec
 
   describe "Out" do
     it "Out(pass_outer_ctx: true)" do
-      my_input_provider = ->(ctx, outer_ctx:, **kws) { [outer_ctx[:params][:id], kws] }
+      my_provider = ->(ctx, outer_ctx:, **kws) {
+        {
+          my_slug: [CU.inspect(ctx), CU.inspect(outer_ctx), CU.inspect(kws)]
+        }
+      }
 
-      my_node = Filter.build_node(
+      my_node = Filter::Out::PassOuterCtx.build_node(
         id: nil,
-        args_for_step_build: [my_input_provider, {}],
+        args_for_step_build: [my_provider, {}],
         write_name: :my_slug,
       )
-
-      my_node = Trailblazer::Circuit::Node::Patch.(
-        my_node,
-        [:invoke_provider],
-        adds: [
-          [
-            :merge_outer_ctx,
-            Trailblazer::Circuit::Node[:merge_outer_ctx, Filter.method(:merge_outer_ctx), Trailblazer::Circuit::Task::Adapter::LibInterface],
-            :before, :invoke_provider,
-            # inbound_signal: nil # we want to sit between {set_target_ctx} and {invoke_provider}.
-          ]
-        ]
-      )
-
-      my_node = Trailblazer::Circuit::Node::Patch.(
-        my_node,
-        [],
-        adds: [
-          Filter::Build::WRAP_VALUE_WITH_HASH
-        ]
-      )
-
-      # FIXME: allow merge_to_circuit_options and merge_to_lib_ctx (Scoped) node feature in one node!
-      my_original_node_circuit = Trailblazer::Circuit::Builder.Pipeline(
-        [:actual_out_logic, node: my_node]
-      )
-      my_node = Trailblazer::Circuit::Node::Scoped[:FIXME_scope_for_outer_ctx_merge, my_original_node_circuit, Trailblazer::Circuit::Processor, copy_to_outer_ctx: [:aggregate]]
-
-      # raise "adds vs step_block?"
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
@@ -129,11 +104,9 @@ class FilterTest < Minitest::Spec
         target_ctx: original_target_ctx = {bogus: true, slug: "0x666"}.freeze, # this is the ctx produced by the call_task.
         terminus: expected_aggregate = {
           :my_slug => [
-            1,
-            { # the kwargs we see in the user provider:
-              bogus: true,
-              slug: "0x666",
-            }
+            "{:bogus=>true, :slug=>\"0x666\", :outer_ctx=>{:params=>{:id=>1}}}", # ctx contains {:outer_ctx}
+            "{:params=>{:id=>1}}", # this is the outer_ctx
+            "{:bogus=>true, :slug=>\"0x666\"}" # the kws
           ],
         }
 

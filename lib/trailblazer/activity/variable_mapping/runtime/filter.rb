@@ -46,6 +46,7 @@ module Trailblazer
             WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
+# FIXME: are we using this? or do we do Adds?
           class Wrapped < Filter
             def self.build_node(**options)
               circuit = Filter.build_circuit(**options)
@@ -57,7 +58,34 @@ module Trailblazer
           end
 
           module Out
+            class PassOuterCtx < Filter
+              def self.build_node(**)
+                # problem is, we are building a classic "In" (because of the dynamic provider), then patch it for the additional step, and build another graph.
 
+                node = super
+
+                node = Circuit::Node::Patch.(
+                  node,
+                  [:invoke_provider],
+                  adds: [
+                    [
+                      :merge_outer_ctx,
+                      Circuit::Node[:merge_outer_ctx, Runtime::Filter.method(:merge_outer_ctx), Circuit::Task::Adapter::LibInterface],
+                      :before, :invoke_provider
+                    ]
+                  ]
+                )
+                # FIXME: we don't have a coherent way of nesting Nodes, yet.
+                interface = ->(node, lib_ctx, flow_options, signal, **circuit_options) { node.(lib_ctx, flow_options, signal, **circuit_options) }
+
+                Trailblazer::Circuit::Node::Scoped[
+                  :FIXME_scope_for_outer_ctx_merge,
+                  node,
+                  interface,
+                  copy_to_outer_ctx: [:aggregate]
+                ]
+              end
+            end
           end
 
           class Conditioned < Filter
