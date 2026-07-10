@@ -100,7 +100,7 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
         use_application_ctx: false, # TODO: remove.
-        original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
+        # original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
         target_ctx: original_target_ctx = {bogus: true, slug: "0x666"}.freeze, # this is the ctx produced by the call_task.
         terminus: expected_aggregate = {
           :my_slug => [

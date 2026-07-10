@@ -412,16 +412,22 @@ class DslIntegrationTest < Minitest::Spec
 
     it "Out(:pass_outer_ctx) => ->(*) { snippet }" do
       options = {
-        dsl.Out(:pass_outer_ctx) => ->(ctx, outer_ctx:, **kws) { [CU.inspect(ctx), CU.inspect(outer_ctx), CU.inspect(kws)] }
+        dsl.Out(pass_outer_ctx: true) => ->(ctx, outer_ctx:, **kws) {
+          {
+            my_captured: [ctx.class, CU.inspect(ctx.to_h), CU.inspect(outer_ctx), CU.inspect(kws)]
+          }
+        }
       }
 
       assert_dsl **options,
-        target_ctx: {params: {}, pollute: true},
+        target_ctx: {model: Object},
         expected: {
           # we only see {:my_captured}
           :my_captured=>[
-            "{:params=>{}, :pollute=>true}",
-            "{:params=>{}}"
+            Trailblazer::Activity::VariableMapping::Context,
+            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"], :outer_ctx=>{:params=>{}}}",
+            "{:params=>{}}", # outer_ctx
+            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"]}"
           ]
         }
     end

@@ -66,7 +66,13 @@ module Trailblazer
             end
 
             # right-hand is a provider: ->(*) { ... }
-            [build_filter_node_row_for_provider(right_options, **@options, **options_from_dsl)] # @options is usually {read_name: :slug}
+            build_filter_node_rows_for_provider(right_options, **options_from_dsl)
+          end
+
+          def build_filter_node_rows_for_provider(right_options, **options_from_dsl)
+            [
+              build_filter_node_row_for_provider(right_options, **@options, **options_from_dsl)
+            ] # @options is usually {read_name: :slug}
           end
 
           # In() with "callable"/provider never needs hash wrap.
@@ -120,29 +126,8 @@ module Trailblazer
 
         class Out < Tuple
           class PassOuterCtx < Out
-            def call(provider_from_user)
-              id, node_hsh = build_filter_node_row_for_provider(provider_from_user, **@options)
-
-              node = node_hsh[:node]
-              node = add_merge_outer_ctx_step(node)
-
-              return [
-                [id, {node: node}]
-              ] # @options is usually {read_name: :slug}
-            end
-
-            def add_merge_outer_ctx_step(node) # TODO: simplify?
-              _node = Circuit::Node::Patch.(
-                node,
-                [:invoke_provider],
-                adds: [
-                  [
-                    :merge_outer_ctx,
-                    Circuit::Node[:merge_outer_ctx, Runtime::Filter.method(:merge_outer_ctx), Circuit::Task::Adapter::LibInterface],
-                    :before, :invoke_provider
-                  ]
-                ]
-              )
+            def call(provider_from_user, **options_from_dsl)
+              build_filter_node_rows_for_provider(provider_from_user, filter: Runtime::Filter::Out::PassOuterCtx, **options_from_dsl)
             end
           end
         end # Out
