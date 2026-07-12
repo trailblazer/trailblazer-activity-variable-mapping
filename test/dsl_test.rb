@@ -506,6 +506,23 @@ class DslIntegrationTest < Minitest::Spec
 
       assert_dsl **options, expected: {a: 2}
     end
+
+    it "compound test" do
+      options = {
+        dsl.In() => [:params, :current_user],
+        dsl.Inject() => [:http],
+        dsl.Out() => [:captured]
+      }
+
+      assert_dsl **options,
+        target_ctx: {current_user: Object, params: {}},
+        expected: {captured: [ctx = "{:params=>{}, :current_user=>Object}", ctx]}
+
+      assert_dsl **options,
+        target_ctx: {current_user: Object, params: {}, http: Module},
+        expected: {captured: [ctx = "{:http=>Module, :params=>{}, :current_user=>Object}", ctx]}
+    end
+
   end
 
 
