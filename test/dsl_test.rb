@@ -480,7 +480,32 @@ class DslIntegrationTest < Minitest::Spec
 
   # Idea here: test generic behavior of ordering etc, properties of the pipeline character.
   describe "#what" do
+    it "two In(), the latter one wins" do
+      options = {
+        dsl.In() => ->(*) { {a: 1} },
+        dsl.In() => ->(*) { {a: 2} },
+      }
 
+      assert_dsl **options, expected: {captured: ["{:a=>2}", "{:a=>2}"]}
+    end
+
+    it "two Inject(), the latter one wins" do
+      options = {
+        dsl.Inject(:a) => ->(*) { 1 },
+        dsl.Inject(:a) => ->(*) { 2 },
+      }
+
+      assert_dsl **options, expected: {captured: ["{:a=>2}", "{:a=>2}"]}
+    end
+
+    it "two Out(), the latter one wins" do
+      options = {
+        dsl.Out() => ->(*) { {a: 1} },
+        dsl.Out() => ->(*) { {a: 2} },
+      }
+
+      assert_dsl **options, expected: {a: 2}
+    end
   end
 
 
