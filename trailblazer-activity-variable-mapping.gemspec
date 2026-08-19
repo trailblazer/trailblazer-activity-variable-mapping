@@ -4,7 +4,7 @@ require_relative "lib/trailblazer/activity/variable_mapping/version"
 
 Gem::Specification.new do |spec|
   spec.name = "trailblazer-activity-variable-mapping"
-  spec.version = Trailblazer::Activity::VariableMapping::VERSION
+  spec.version = Trailblazer::Version::Activity::VariableMapping::VERSION
   spec.authors = ["Nick Sutterer"]
   spec.email = ["apotonick@gmail.com"]
 
