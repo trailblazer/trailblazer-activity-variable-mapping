@@ -17,7 +17,6 @@ class FilterTest < Minitest::Spec
 
     lib_ctx, flow_options, signal = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
-      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"generator-1"} # DISCUSS: value-on-signal
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"generator-1"}, target_ctx: original_target_ctx}
@@ -35,7 +34,6 @@ class FilterTest < Minitest::Spec
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
-      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
@@ -59,7 +57,6 @@ class FilterTest < Minitest::Spec
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
-      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
@@ -76,7 +73,6 @@ class FilterTest < Minitest::Spec
 
     lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
-      use_application_ctx: false, # TODO: remove.
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
@@ -99,7 +95,6 @@ class FilterTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # TODO: remove.
         original_target_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
         target_ctx: original_target_ctx = {bogus: true, slug: "0x666"}.freeze, # this is the ctx produced by the call_task.
         terminus: expected_aggregate = {
@@ -131,7 +126,6 @@ class FilterTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {:slug=>"generator-1"},
         signal: Object
 
@@ -148,7 +142,6 @@ class FilterTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
 
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}, target_ctx: original_target_ctx} # we could read {:slug}.
@@ -198,7 +191,6 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 1}
 
       assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
@@ -208,7 +200,6 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 2}
 
       assert_equal lib_ctx, {:aggregate=>{:my_global_id=>2}, target_ctx: original_target_ctx}
@@ -232,7 +223,6 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {my_global_id: 1}
 
       assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
@@ -254,7 +244,6 @@ class FilterTest < Minitest::Spec
         lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
           target_ctx: original_target_ctx,
           **filter_lib_ctx_options,
-          use_application_ctx: false, # FIXME: remove.
           terminus: {my_global_id: 1}
 
         assert_equal lib_ctx, {:aggregate=>{:my_global_id=>1}, target_ctx: original_target_ctx}
@@ -274,7 +263,6 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         target_ctx: target_ctx,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {my_id: 1}
 
       assert_equal lib_ctx, {:aggregate=>{:my_id=>1}, target_ctx: target_ctx}
@@ -285,7 +273,6 @@ class FilterTest < Minitest::Spec
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         target_ctx: target_ctx,
         **filter_lib_ctx_options,
-        use_application_ctx: false, # FIXME: remove.
         terminus: {my_id: 1}
 
       assert_equal lib_ctx, {:aggregate=>{:my_id=>1}, target_ctx: target_ctx}

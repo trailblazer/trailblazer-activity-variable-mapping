@@ -1,4 +1,5 @@
 require "trailblazer/circuit"
+require "trailblazer/activity"
 
 module Trailblazer
   class Activity
@@ -8,7 +9,6 @@ module Trailblazer
   end
 end
 
-require "trailblazer/activity"
 require "trailblazer/activity/variable_mapping/build/input"
 require "trailblazer/activity/variable_mapping/build/output" # DISCUSS: separate file?
 require "trailblazer/activity/variable_mapping/dsl"

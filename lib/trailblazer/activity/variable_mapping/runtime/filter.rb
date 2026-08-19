@@ -31,7 +31,7 @@ module Trailblazer
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[**options_for_filter].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
-            return Circuit::Node::MergeToCircuitOptions[id, circuit, Circuit::Processor, exec_context: filter_exec_context]
+            return Circuit::Node::MergeToCircuitOptions[circuit, Circuit::Processor, exec_context: filter_exec_context]
           end
 
           # FIXME: can we reuse nodes?
@@ -43,7 +43,7 @@ module Trailblazer
           end
 
           module Build # TODO: rename to Feature.
-            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, :wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
+            WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
 # FIXME: are we using this? or do we do Adds?
@@ -70,7 +70,7 @@ module Trailblazer
                   adds: [
                     [
                       :merge_outer_ctx,
-                      Circuit::Node[:merge_outer_ctx, Runtime::Filter.method(:merge_outer_ctx), Circuit::Task::Adapter::LibInterface],
+                      Circuit::Node[Runtime::Filter.method(:merge_outer_ctx), Circuit::Task::Adapter::LibInterface],
                       :before, :invoke_provider
                     ]
                   ]
@@ -79,7 +79,6 @@ module Trailblazer
                 interface = ->(node, lib_ctx, flow_options, signal, **circuit_options) { node.(lib_ctx, flow_options, signal, **circuit_options) }
 
                 Trailblazer::Circuit::Node::Scoped[
-                  :FIXME_scope_for_outer_ctx_merge,
                   node,
                   interface,
                   copy_to_outer_ctx: [:aggregate]

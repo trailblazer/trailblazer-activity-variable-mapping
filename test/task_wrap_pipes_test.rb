@@ -54,7 +54,6 @@ class TaskWrapPipesTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run input_node, node: true,
-      use_application_ctx: false, # FIXME: remove.
       target_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []}.freeze,
       signal: Object,
       terminus: Object, seq: [] # the input pipe passes through the outer signal.
@@ -78,7 +77,6 @@ class TaskWrapPipesTest < Minitest::Spec
     )
 
     lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
-      use_application_ctx: false, # FIXME: remove.
       target_ctx: original_ctx = {slug: "0x666", params: {id: 1}}.freeze,
       signal: Object,
       terminus: Object # the input pipe passes through the outer signal.
@@ -102,7 +100,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
     lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
       # original_target_ctx: {x: 4},
-      use_application_ctx: false, # FIXME: remove.
       target_ctx: {from_outside: true}.freeze,
       signal: Object, terminus: Object # the input pipe passes through the outer signal.
 
@@ -134,7 +131,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
         original_target_ctx: {x: 4},
-        use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new(
             {from_outside: true},
             {
@@ -167,7 +163,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
         original_target_ctx: {x: 4},
-        use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new(
             {from_outside: true},
             {
@@ -199,7 +194,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
         original_target_ctx: {model: Module, controller: true},
-        use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true, params: {id: 1}}, {mutable: "here", slug: "0x666"}.freeze),
         signal: Object,
         terminus: Object # the input pipe passes through the outer signal.
@@ -223,7 +217,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
         original_target_ctx: {model: Module, params: {}},
-        use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true, params: {id: 1}}, {mutable: "here", slug: "0x666"}.freeze),
         signal: Object,
         terminus: Object # the input pipe passes through the outer signal.
@@ -247,7 +240,6 @@ class TaskWrapPipesTest < Minitest::Spec
 
       lib_ctx, flow_options = assert_run output_node, node: true, seq: nil,
         original_target_ctx: {x: 4},
-        use_application_ctx: false, # FIXME: remove.
         target_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: true}, {mutable: "here"}.freeze),
         signal: Object,
         terminus: Object # the input pipe passes through the outer signal.
