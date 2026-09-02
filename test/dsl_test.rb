@@ -565,7 +565,6 @@ class DslIntegrationTest < Minitest::Spec
 
     lib_ctx, _ = assert_run my_task_wrap,
       seq: nil,
-      use_application_ctx:  false, # FIXME: make unnecessary.
       target_ctx:           target_ctx,
       original_target_ctx:  {params: {}},
       terminus: Trailblazer::Activity::Right
