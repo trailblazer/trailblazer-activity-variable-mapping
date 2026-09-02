@@ -16,7 +16,7 @@ module Trailblazer
 
           # TODO: we don't have to rebuild things all the time.
           def build_node()
-            Circuit::Node::Scoped[:vm_normalizer, build_circuit, Circuit::Processor, copy_to_outer_ctx: [:adds_for_task_wrap]]
+            Circuit::Node::Scoped[build_circuit, Circuit::Processor, copy_to_outer_ctx: [:adds_for_task_wrap]]
           end
 
           # @private
