@@ -1,10 +1,8 @@
-require "trailblazer/circuit"
 require "trailblazer/activity"
 
 module Trailblazer
   class Activity
     module VariableMapping
-
     end
   end
 end

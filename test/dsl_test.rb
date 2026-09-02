@@ -545,6 +545,7 @@ class DslIntegrationTest < Minitest::Spec
     Trailblazer::Circuit::Adds.(my_task_wrap, *adds_for_task_wrap)
   end
 
+  # DISCUSS: admittedly, building a "fake normalizer" here is a bit cryptic.
   def build_adds_from_dsl(vm_options)
     lib_ctx, _ = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
       user_options:  # DISCUSS: naming is under construction.

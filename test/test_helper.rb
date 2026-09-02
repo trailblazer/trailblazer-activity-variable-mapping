@@ -8,9 +8,5 @@ Minitest::Spec.class_eval do
   include Trailblazer::Core::Utils::AssertEqual
   include Trailblazer::Core::Utils::AssertRun
 
-  def Pipeline(*args)
-    Trailblazer::Circuit::Builder.Pipeline(*args)
-  end
-
   CU = Trailblazer::Core::Utils
 end
