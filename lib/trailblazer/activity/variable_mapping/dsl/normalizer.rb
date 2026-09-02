@@ -5,20 +5,6 @@ module Trailblazer
         module Normalizer
           module_function
 
-          def build_circuit()
-            Circuit::Builder.Circuit(
-              [:disect_input_and_output, method(:disect_input_and_output),
-                connections: {Left => [nil, Left], Right => [:convert_dsl_to_nodes, Right]}],
-              [:convert_dsl_to_nodes, method(:convert_dsl_to_nodes)],
-              [:add_task_wrap_extensions, method(:add_task_wrap_extensions)]
-            )
-          end
-
-          # TODO: we don't have to rebuild things all the time.
-          def build_node()
-            Circuit::Node::Scoped[build_circuit, Circuit::Processor, copy_to_outer_ctx: [:adds_for_task_wrap]]
-          end
-
           # @private
           def disect_input_and_output(lib_ctx, flow_options, signal, user_options:, **)
             injects = user_options.find_all { |k, v| k.is_a?(Inject) }
@@ -68,7 +54,16 @@ module Trailblazer
 
             return lib_ctx.merge(adds_for_task_wrap: adds_for_task_wrap + vm_extensions), flow_options, signal
           end
-        end
+
+          circuit = Circuit::Builder.Circuit(
+            [:disect_input_and_output, method(:disect_input_and_output),
+              connections: {Left => [nil, Left], Right => [:convert_dsl_to_nodes, Right]}],
+            [:convert_dsl_to_nodes, method(:convert_dsl_to_nodes)],
+            [:add_task_wrap_extensions, method(:add_task_wrap_extensions)]
+          )
+
+          Node = Circuit::Node::Scoped[circuit, Circuit::Processor, copy_to_outer_ctx: [:adds_for_task_wrap]]
+        end # Normalizer
       end
     end
   end

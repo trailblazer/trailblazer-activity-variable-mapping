@@ -4,7 +4,7 @@ require "test_helper"
 # DISCUSS: these are unit tests.
 class DslTest < Minitest::Spec
   it "what" do
-    lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer.build_node, node: true,
+    lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
       user_options: { # DISCUSS: naming is under construction.
         Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
         Trailblazer::Activity::VariableMapping::DSL.Out() => ->(ctx, slug:, **) { {my_slug: slug} }
@@ -22,7 +22,7 @@ class DslTest < Minitest::Spec
   end
 
   it "creates empty pipes when no filters wanted" do
-    lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer.build_node, node: true,
+    lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
 
       user_options: { # DISCUSS: naming is under construction.
       },
@@ -546,7 +546,7 @@ class DslIntegrationTest < Minitest::Spec
   end
 
   def build_adds_from_dsl(vm_options)
-    lib_ctx, _ = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer.build_node, node: true,
+    lib_ctx, _ = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
       user_options:  # DISCUSS: naming is under construction.
         vm_options,
       exec_context_for_provider: self, # DISCUSS: is that the right place?
