@@ -8,7 +8,7 @@ class DslTest < Minitest::Spec
       Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
       Trailblazer::Activity::VariableMapping::DSL.Out() => ->(ctx, slug:, **) { {my_slug: slug} },
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
-      exec_context_for_provider: self,
+      exec_context: self,
 
       seq: [],
       use_application_ctx:  false,
@@ -172,7 +172,7 @@ class DslIntegrationTest < Minitest::Spec
 
     it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {
           captured: [ctx = "{:params=>{}, :http=>[\"{:params=>{}}\", \"{:params=>{}}\"]}", ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
@@ -180,7 +180,7 @@ class DslIntegrationTest < Minitest::Spec
 
     it "if present, the defaulting is skipped" do
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {captured: [ctx = "{:params=>{}, :http=>Object}", ctx]},
         target_ctx: {params: {}, http: Object}
     end
@@ -201,7 +201,7 @@ class DslIntegrationTest < Minitest::Spec
       what_filter_sees = ["{:params=>{}}", "{:params=>{}}"]
 
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {
           captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
@@ -212,7 +212,7 @@ class DslIntegrationTest < Minitest::Spec
       what_filter_sees = ["{:params=>{}, :http=>Object}", "{:params=>{}, :http=>Object}"]
 
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {
           # the task sees what the override filter sees.
           captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is still defaulted.
@@ -231,7 +231,7 @@ class DslIntegrationTest < Minitest::Spec
       what_filter_sees = ["{:params=>{}}", "{:params=>{}}"]
 
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {
           captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
@@ -242,7 +242,7 @@ class DslIntegrationTest < Minitest::Spec
       what_filter_sees = ["{:params=>{}, :http=>Object}", "{:params=>{}, :http=>Object}"]
 
       assert_dsl **options,
-        exec_context_for_provider: self,
+        exec_context: self,
         expected: {
           # the task sees what the override filter sees.
           captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is still defaulted.
@@ -332,7 +332,7 @@ class DslIntegrationTest < Minitest::Spec
       what_step_sees = "{:params=>{}, :model=>Object}"
 
       assert_dsl **options,
-        # exec_context_for_provider: self,
+        # exec_context: self,
         target_ctx: {params: {}, model: Object},
         expected: {
           :my_out=>[
@@ -352,7 +352,7 @@ class DslIntegrationTest < Minitest::Spec
       what_step_sees = "{:params=>{}, :model=>Object}"
 
       assert_dsl **options,
-        # exec_context_for_provider: self,
+        # exec_context: self,
         target_ctx: {params: {}, model: Object},
         expected: {
           :my_out=>[
@@ -544,7 +544,7 @@ class DslIntegrationTest < Minitest::Spec
   def build_adds_from_dsl(vm_options)
     lib_ctx, _ = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
       **vm_options,
-      exec_context_for_provider: self, # DISCUSS: is that the right place?
+      exec_context: self, # DISCUSS: is that the right place?
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
 
 
