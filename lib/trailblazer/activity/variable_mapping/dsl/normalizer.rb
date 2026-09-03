@@ -27,9 +27,9 @@ module Trailblazer
           end
 
           # @private
-          def convert_dsl_to_nodes(lib_ctx, flow_options, signal, injects:, ins:, outs:, default_ctx_for_input:, default_ctx_for_output:, exec_context_for_provider:, **)
-            in_node = Input.convert_tuples_to_node(injects + ins, add_default_ctx: default_ctx_for_input, exec_context_for_provider: exec_context_for_provider)
-            out_node = Output.convert_tuples_to_node(outs, add_default_ctx: default_ctx_for_output, exec_context_for_provider: exec_context_for_provider)
+          def convert_dsl_to_nodes(lib_ctx, flow_options, signal, injects:, ins:, outs:, default_ctx_for_input:, default_ctx_for_output:, exec_context:, **)
+            in_node = Input.convert_tuples_to_node(injects + ins, add_default_ctx: default_ctx_for_input, exec_context_for_provider: exec_context)
+            out_node = Output.convert_tuples_to_node(outs, add_default_ctx: default_ctx_for_output, exec_context_for_provider: exec_context)
 
             return lib_ctx.merge(node_for_input: in_node, node_for_output: out_node), flow_options, signal
           end
