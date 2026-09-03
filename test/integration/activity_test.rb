@@ -34,6 +34,7 @@ class ActivityIntegrationTest < Minitest::Spec
     ctx[:captured] = [CU.inspect(ctx.to_h), CU.inspect(kws)]
 
     ctx[:pollute] = 1 if pollute
+
     true
   end
 
@@ -41,13 +42,65 @@ class ActivityIntegrationTest < Minitest::Spec
 
   it "step only sees what is configured via In()" do
     my_railway = Class.new(Trailblazer::Activity::Railway) do
-      step my_capture_step, id: :a,
+      step my_capture_step,
         In() => [:model, :params]
     end
 
     lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success
-
-    # the {:a} task cannot see {:seq}.
+    # the {my_capture_step} step cannot see {:seq}.
+    # we can see {:captured} on the outside.
     assert_equal lib_ctx, {:target_ctx=>{:seq=>[], :captured=>["{:model=>nil, :params=>nil}", "{:model=>nil, :params=>nil}"]}}
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success, target_ctx: {seq: [], pollute: true}
+    # Since we don't allow :pollute, the my_capture_step doesn't see it.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], pollute: true, :captured=>["{:model=>nil, :params=>nil}", "{:model=>nil, :params=>nil}"]}}
+  end
+
+  it "without Out(), all variables are visible on the outside" do
+    my_railway = Class.new(Trailblazer::Activity::Railway) do
+      step my_capture_step,
+        In() => [:model, :params, :pollute]
+    end
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success
+    # the {my_capture_step} step cannot see {:seq}.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], :captured=>["{:model=>nil, :params=>nil, :pollute=>nil}", "{:model=>nil, :params=>nil}"]}}
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success, target_ctx: {seq: [], pollute: true}
+    # we can see pollute outside.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], pollute: 1, :captured=>["{:model=>nil, :params=>nil, :pollute=>true}", "{:model=>nil, :params=>nil}"]}}
+  end
+
+  it "with Out(), we only see {:captured}" do
+    my_railway = Class.new(Trailblazer::Activity::Railway) do
+      step my_capture_step,
+        In() => [:model, :params, :pollute],
+        Out() => [:captured]
+    end
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success
+    #
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], :captured=>["{:model=>nil, :params=>nil, :pollute=>nil}", "{:model=>nil, :params=>nil}"]}}
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success, target_ctx: {seq: [], pollute: true}
+    # we cannot see pollute outside.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], pollute: true, :captured=>["{:model=>nil, :params=>nil, :pollute=>true}", "{:model=>nil, :params=>nil}"]}}
+  end
+
+  it "" do
+    my_railway = Class.new(Trailblazer::Activity::Railway) do
+      step my_capture_step,
+        In() => [:model, :params],
+        Inject() => [:pollute],
+        Out() => [:captured]
+    end
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success
+    # {:pollute} is absent in target_ctx and thus not visible inside.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], :captured=>["{:model=>nil, :params=>nil}", "{:model=>nil, :params=>nil}"]}}
+
+    lib_ctx, _ = assert_run my_railway, seq: [], terminus: :success, target_ctx: {seq: [], pollute: true}
+    # we cannot see pollute outside.
+    assert_equal lib_ctx, {:target_ctx=>{:seq=>[], pollute: true, :captured=>["{:pollute=>true, :model=>nil, :params=>nil}", "{:model=>nil, :params=>nil}"]}}
   end
 end
