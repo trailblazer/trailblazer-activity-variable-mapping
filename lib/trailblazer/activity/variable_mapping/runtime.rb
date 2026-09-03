@@ -1,15 +1,8 @@
 module Trailblazer
   class Activity
     module VariableMapping
-
-      # Runtime classes
-
-      # These objects are created via the DSL, keep all i/o steps in a Pipeline
-      # and run the latter as a taskWrap step.
-
       module Runtime
         module_function
-
         # TODO: move to Runtime::Input and :::Output.
 
         # Merge all original ctx variables into the new input_ctx.
@@ -20,52 +13,41 @@ module Trailblazer
           return lib_ctx, flow_options, signal
         end
 
-        def build_context(lib_ctx, flow_options, signal, aggregate:, **)
+        def build_context(lib_ctx, flow_options, signal, aggregate:, target_ctx:, **)
           new_target_ctx = Context.new(
             aggregate,
             {}, # mutable variables
-            # flow_options[:context_options]
+            target_ctx # save the original ctx, only visible to us in I/O.
           )
-
-          # flow_options = flow_options.merge(application_ctx: new_application_ctx)
 
           return lib_ctx.merge(target_ctx: new_target_ctx), flow_options, signal
         end
 
-          # Lib interface.
-  def save_original_application_ctx(lib_ctx, flow_options, signal, **)
-    # DISCUSS: do we need this?
-    lib_ctx[:original_application_ctx] = flow_options[:application_ctx] # the "outer ctx".
+        # def save_original_target_ctx(lib_ctx, flow_options, signal, target_ctx:, **)
+        #   # save the "outer ctx" under {:original_target_ctx}.
+        #   lib_ctx = lib_ctx.merge(original_target_ctx: target_ctx)
 
-    return lib_ctx, flow_options, signal
-  end
+        #   return lib_ctx, flow_options, signal
+        # end
 
+        def merge_aggregate_into_original_ctx(lib_ctx, flow_options, signal, aggregate:, target_ctx:, original_target_ctx: target_ctx.original_ctx, **)
+          new_ctx = original_target_ctx.merge(aggregate)
 
+          lib_ctx = lib_ctx.merge(target_ctx: new_ctx)
 
+          return lib_ctx, flow_options, signal
+        end
 
+        # Merge the mutable part of the scoped ctx back into the outer ctx.
+        # Default behavior when there's nothing configured.
+        def default_output_ctx(lib_ctx, flow_options, signal, aggregate:, target_ctx:, **)
+          _wrapped, mutable = target_ctx.decompose # `_wrapped` is what the `:input` filter returned, `mutable` is what the task wrote to `scoped`.
 
+          lib_ctx[:aggregate] = aggregate.merge(mutable)
 
-
-          def self.merge_aggregate_into_original_ctx(lib_ctx, flow_options, signal, aggregate:, original_target_ctx:, **)
-            new_ctx = original_target_ctx.merge(aggregate)
-
-            # flow_options = flow_options.merge(application_ctx: new_ctx)
-            lib_ctx = lib_ctx.merge(target_ctx: new_ctx)
-
-            return lib_ctx, flow_options, signal
-          end
-
-          # Merge the mutable part of the scoped ctx back into the outer ctx.
-          # Default behavior when there's nothing configured.
-          def self.default_output_ctx(lib_ctx, flow_options, signal, aggregate:, target_ctx:, **)
-            _wrapped, mutable = target_ctx.decompose # `_wrapped` is what the `:input` filter returned, `mutable` is what the task wrote to `scoped`.
-
-            lib_ctx[:aggregate] = aggregate.merge(mutable)
-
-            return lib_ctx, flow_options, signal
-          end
-
-      end
+          return lib_ctx, flow_options, signal
+        end
+      end # Runtime
     end
   end
 end

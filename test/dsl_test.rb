@@ -44,7 +44,7 @@ class DslIntegrationTest < Minitest::Spec
     end
 
     it "with variables in ctx, those are visible" do
-      assert_dsl **options, expected: {captured: ["{:random=>1}", "{:random=>1}"]}, target_ctx: {random: 1}
+      assert_dsl **options, expected: {random: 1, captured: ["{:random=>1}", "{:random=>1}"]}, target_ctx: {random: 1}
     end
 
     it "with variables in ctx + inject variable, all are visible" do
@@ -420,8 +420,8 @@ class DslIntegrationTest < Minitest::Spec
           # we only see {:my_captured}
           :my_captured=>[
             Trailblazer::Activity::VariableMapping::Context,
-            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"], :outer_ctx=>{:params=>{}}}",
-            "{:params=>{}}", # outer_ctx
+            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"], :outer_ctx=>{:model=>Object}}",
+            "{:model=>Object}", # outer_ctx
             "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"]}"
           ]
         }
@@ -547,9 +547,7 @@ class DslIntegrationTest < Minitest::Spec
       exec_context: self, # DISCUSS: is that the right place?
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
 
-
       seq: [],
-      use_application_ctx:  false,
       terminus: Trailblazer::Activity::Right
   end
 
@@ -559,10 +557,12 @@ class DslIntegrationTest < Minitest::Spec
 
     lib_ctx, _ = assert_run my_task_wrap,
       seq: nil,
-      target_ctx:           target_ctx,
-      original_target_ctx:  {params: {}},
+      target_ctx: target_ctx,
+      # original_target_ctx:  {params: {}},
       terminus: Trailblazer::Activity::Right
 
-    assert_equal lib_ctx[:target_ctx], {params: {}, **expected}
+    expected = target_ctx.merge(expected)
+
+    assert_equal lib_ctx[:target_ctx], expected
   end
 end

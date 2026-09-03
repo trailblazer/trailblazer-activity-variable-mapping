@@ -10,3 +10,5 @@ Minitest::Spec.class_eval do
 
   CU = Trailblazer::Core::Utils
 end
+
+require "trailblazer/developer"

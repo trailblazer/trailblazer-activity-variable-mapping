@@ -93,24 +93,28 @@ class FilterTest < Minitest::Spec
         write_name: :my_slug,
       )
 
+      ctx_from_call_task = {bogus: true, slug: "0x666"}.freeze # this is the ctx produced by the call_task.
+
+      target_ctx = Trailblazer::Activity::VariableMapping::Context.new(
+        ctx_from_call_task,
+        {},
+        {params: {id: 1}} # this is what the Out filter sees as the "outer_ctx".
+      ).freeze
+
       lib_ctx, flow_options = assert_run my_node, seq: nil, node: true,
         **filter_lib_ctx_options,
-        original_target_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
-        target_ctx: original_target_ctx = {bogus: true, slug: "0x666"}.freeze, # this is the ctx produced by the call_task.
+        target_ctx: target_ctx,
         terminus: expected_aggregate = {
           :my_slug => [
-            "{:bogus=>true, :slug=>\"0x666\", :outer_ctx=>{:params=>{:id=>1}}}", # ctx contains {:outer_ctx}
-            "{:params=>{:id=>1}}", # this is the outer_ctx
-            "{:bogus=>true, :slug=>\"0x666\"}" # the kws
+            "#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:bogus=>true, :slug=>\"0x666\"}, mutable={:outer_ctx=>{:params=>{:id=>1}}}, original_ctx=nil>", # ctx contains {:outer_ctx}, it's a new Context instance, not identical to {target_ctx}.
+            "{:params=>{:id=>1}}", # this is the outer_ctx.
+            "{:bogus=>true, :slug=>\"0x666\"}" # the remaining kws.
           ],
         }
 
-
       assert_equal lib_ctx, {
         aggregate: expected_aggregate,
-        original_target_ctx: {:params=>{:id=>1}},
-        target_ctx: original_target_ctx # Note that we don't see {:outer_ctx} here. that's because we Scope the MergeToCircuitOptions node (WIP).
-
+        target_ctx: target_ctx # Note that we don't see {:outer_ctx} here. that's because we Scope the MergeToCircuitOptions node (WIP).
       }
       assert_equal flow_options, {}
     end

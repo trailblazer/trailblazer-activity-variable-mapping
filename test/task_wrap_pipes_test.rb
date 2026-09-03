@@ -176,8 +176,8 @@ class TaskWrapPipesTest < Minitest::Spec
       assert_equal lib_ctx.class, Hash
       assert_equal lib_ctx[:target_ctx], {
         x: 4, # original.
-        a: ["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}>", "{:from_outside=>true, :mutable=>\"here\"}"],
-        :b=>["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}>", "{:from_outside=>true, :mutable=>\"here\"}"]
+        a: ["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}, original_ctx=nil>", "{:from_outside=>true, :mutable=>\"here\"}"],
+        :b=>["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}, original_ctx=nil>", "{:from_outside=>true, :mutable=>\"here\"}"]
       }
     end
 

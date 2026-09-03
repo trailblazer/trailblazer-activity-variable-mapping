@@ -169,8 +169,8 @@ module Trailblazer
           end
 
           # FIXME: should we use instance method instead?
-          def self.merge_outer_ctx(lib_ctx, flow_options, signal, original_target_ctx:, target_ctx:, **)
-            target_ctx = target_ctx.merge(outer_ctx: original_target_ctx)
+          def self.merge_outer_ctx(lib_ctx, flow_options, signal, target_ctx:, **)
+            target_ctx = target_ctx.merge(outer_ctx: target_ctx.original_ctx)
 
             return lib_ctx.merge(target_ctx: target_ctx), flow_options, signal
           end
