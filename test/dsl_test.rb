@@ -5,10 +5,8 @@ require "test_helper"
 class DslTest < Minitest::Spec
   it "what" do
     lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
-      user_options: { # DISCUSS: naming is under construction.
-        Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
-        Trailblazer::Activity::VariableMapping::DSL.Out() => ->(ctx, slug:, **) { {my_slug: slug} }
-      },
+      Trailblazer::Activity::VariableMapping::DSL::Inject() => [:http],
+      Trailblazer::Activity::VariableMapping::DSL.Out() => ->(ctx, slug:, **) { {my_slug: slug} },
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
       exec_context_for_provider: self,
 
@@ -23,9 +21,6 @@ class DslTest < Minitest::Spec
 
   it "creates empty pipes when no filters wanted" do
     lib_ctx, flow_options, signal = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
-
-      user_options: { # DISCUSS: naming is under construction.
-      },
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
 
       seq: [],
@@ -548,8 +543,7 @@ class DslIntegrationTest < Minitest::Spec
   # DISCUSS: admittedly, building a "fake normalizer" here is a bit cryptic.
   def build_adds_from_dsl(vm_options)
     lib_ctx, _ = assert_run Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node, node: true,
-      user_options:  # DISCUSS: naming is under construction.
-        vm_options,
+      **vm_options,
       exec_context_for_provider: self, # DISCUSS: is that the right place?
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
 

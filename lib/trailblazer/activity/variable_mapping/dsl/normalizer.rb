@@ -6,7 +6,7 @@ module Trailblazer
           module_function
 
           # @private
-          def disect_input_and_output(lib_ctx, flow_options, signal, user_options:, **)
+          def disect_input_and_output(lib_ctx, flow_options, signal, **user_options)
             injects = user_options.find_all { |k, v| k.is_a?(Inject) }
             ins     = user_options.find_all { |k, v| k.is_a?(In) }
             outs    = user_options.find_all { |k, v| k.is_a?(Out) }
