@@ -2,30 +2,33 @@ require "test_helper"
 require "trailblazer/activity/dsl"
 
 # FIXME: encapsulate
-step_normalizer = Trailblazer::Activity::Railway.config.builder.normalizers[:step]
+[
+  # Trailblazer::Activity::Path,
+  Trailblazer::Activity::Railway,
+  # Trailblazer::Activity::FastTrack
+].each do |topology|
+  activity, builder, helper_forwarder = Trailblazer::Activity::DSL::Topology.build(
+    builder: topology.config.builder,
+    default_options: {adds_for_task_wrap: []},
 
-step_normalizer = Trailblazer::Circuit::Adds.(
-  step_normalizer,
+    helpers: {
+      Trailblazer::Activity::VariableMapping::DSL::Helper => [:In, :Out, :Inject]
+    },
+    adds: [
+      # FIXME: the next step should be already there by Path/canonical.
+      # extension/task_wrap
+      [:apply_adds_to_task_wrap_pipeline, Trailblazer::Activity::DSL::Feature::Extension::TaskWrap::Normalizer::Node, :before, :build_task_wrap_node],
 
-  # FIXME: the next step should be already there by Path/canonical.
-  # extension/task_wrap
-  [:apply_adds_to_task_wrap_pipeline, Trailblazer::Activity::DSL::Feature::Extension::TaskWrap::Normalizer::Node, :before, :build_task_wrap_node],
+      [
+        :variable_mapping, Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node,
+        :before, :normalize_wirings
+      ],
+    ],
+  )
 
-  [
-    :variable_mapping, Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node,
-    :before, :normalize_wirings
-  ],
-)
-
-normalizers = Trailblazer::Activity::Railway.config.builder.normalizers
-Trailblazer::Activity::Railway.config.builder.normalizers = normalizers.merge(step: step_normalizer)
-
-# extension/task_wrap
-Trailblazer::Activity::Railway.config.builder = Trailblazer::Activity::Railway.config.builder.clone(merge: {adds_for_task_wrap: []})
-
-Trailblazer::Developer.puts(Trailblazer::Activity::Railway.config.builder.normalizers[:step])
-
-Trailblazer::Activity::DSL::Topology::Helper.include(Trailblazer::Activity::VariableMapping::DSL::Helper)
+  topology.config.builder = builder
+  topology.extend helper_forwarder
+end
 
 # Test I/O in {Topology}.
 class ActivityIntegrationTest < Minitest::Spec
