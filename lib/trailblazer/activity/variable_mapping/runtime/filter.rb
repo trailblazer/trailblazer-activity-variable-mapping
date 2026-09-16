@@ -31,7 +31,7 @@ module Trailblazer
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[**options_for_filter].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
-            return Circuit::Node::MergeToCircuitOptions[circuit, Circuit::Processor, exec_context: filter_exec_context]
+            return Circuit::Node::MergeToCircuitOptions[circuit, Circuit::Processor, merge_to_circuit_options: {exec_context: filter_exec_context}]
           end
 
           # FIXME: can we reuse nodes?
