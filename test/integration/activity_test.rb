@@ -1,7 +1,7 @@
 require "test_helper"
 require "trailblazer/activity/dsl"
 
-# FIXME: encapsulate
+# FIXME: encapsulate? but should we really add more code for this?
 [
   # Trailblazer::Activity::Path,
   Trailblazer::Activity::Railway,
@@ -9,15 +9,8 @@ require "trailblazer/activity/dsl"
 ].each do |topology|
   activity, builder, helper_forwarder = Trailblazer::Activity::DSL::Topology.build(
     builder: topology.config.builder,
-    helpers: {
-      Trailblazer::Activity::VariableMapping::DSL::Helper => [:In, :Out, :Inject]
-    },
-    adds: [
-      [
-        :variable_mapping, Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node,
-        :before, :normalize_wirings
-      ],
-    ],
+    default_options: {},
+    **Trailblazer::Activity::VariableMapping::TOPOLOGY_BUILD_OPTIONS # :helpers and :adds
   )
 
   topology.config.builder = builder
