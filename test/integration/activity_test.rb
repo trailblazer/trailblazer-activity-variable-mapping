@@ -9,16 +9,10 @@ require "trailblazer/activity/dsl"
 ].each do |topology|
   activity, builder, helper_forwarder = Trailblazer::Activity::DSL::Topology.build(
     builder: topology.config.builder,
-    default_options: {adds_for_task_wrap: []},
-
     helpers: {
       Trailblazer::Activity::VariableMapping::DSL::Helper => [:In, :Out, :Inject]
     },
     adds: [
-      # FIXME: the next step should be already there by Path/canonical.
-      # extension/task_wrap
-      [:apply_adds_to_task_wrap_pipeline, Trailblazer::Activity::DSL::Feature::Extension::TaskWrap::Normalizer::Node, :before, :build_task_wrap_node],
-
       [
         :variable_mapping, Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node,
         :before, :normalize_wirings
