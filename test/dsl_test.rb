@@ -42,15 +42,15 @@ class DslIntegrationTest < Minitest::Spec
     end
 
     it "with variables in ctx, those are visible" do
-      assert_dsl **options, expected: {random: 1, captured: ["{:random=>1}", "{:random=>1}"]}, target_ctx: {random: 1}
+      assert_dsl **options, expected: {random: 1, captured: [{:random=>1}.inspect, {:random=>1}.inspect]}, target_ctx: {random: 1}
     end
 
     it "with variables in ctx + inject variable, all are visible" do
-      assert_dsl **options, expected: {captured: ["{:random=>1, :http=>2}", "{:random=>1, :http=>2}"]}, target_ctx: {random: 1, http: 2}
+      assert_dsl **options, expected: {captured: [{:random=>1, :http=>2}.inspect, {:random=>1, :http=>2}.inspect]}, target_ctx: {random: 1, http: 2}
     end
 
     it "injected variable can be {nil}" do
-      assert_dsl **options, expected: {captured: ["{:random=>1, :http=>nil}", "{:random=>1, :http=>nil}"]}, target_ctx: {random: 1, http: nil}
+      assert_dsl **options, expected: {captured: [{:random=>1, :http=>nil}.inspect, {:random=>1, :http=>nil}.inspect]}, target_ctx: {random: 1, http: nil}
     end
 
     it "we can have multiple Inject with one configured variable" do
@@ -61,11 +61,11 @@ class DslIntegrationTest < Minitest::Spec
       }
 
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
+        expected: {captured: [{:random=>1, :http=>2, :logger=>Object}.inspect, {:random=>1, :http=>2, :logger=>Object}.inspect]}, target_ctx: {random: 1, http: 2, logger: Object}
 
       # test that :db is also injected.
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
+        expected: {captured: [{:random=>1, :db=>Object}.inspect, {:random=>1, :db=>Object}.inspect]}, target_ctx: {random: 1, db: Object}
     end
 
     it "we can also configure multiple variables" do
@@ -75,17 +75,17 @@ class DslIntegrationTest < Minitest::Spec
       }
 
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :http=>2, :logger=>Object}", "{:random=>1, :http=>2, :logger=>Object}"]}, target_ctx: {random: 1, http: 2, logger: Object}
+        expected: {captured: [{:random=>1, :http=>2, :logger=>Object}.inspect, {:random=>1, :http=>2, :logger=>Object}.inspect]}, target_ctx: {random: 1, http: 2, logger: Object}
 
       # test that :db is also injected.
       assert_dsl **options,
-        expected: {captured: ["{:random=>1, :db=>Object}", "{:random=>1, :db=>Object}"]}, target_ctx: {random: 1, db: Object}
+        expected: {captured: [{:random=>1, :db=>Object}.inspect, {:random=>1, :db=>Object}.inspect]}, target_ctx: {random: 1, db: Object}
     end
 
     it "without Out(), {pollute} is visible outside" do
       assert_dsl **options,
         expected: {
-          captured: ["{:pollute=>true}", "{}"],
+          captured: [{:pollute=>true}.inspect, "{}"],
           pollute: 1 # outside, we see the pollution.
         },
         target_ctx: {pollute: true}
@@ -94,7 +94,7 @@ class DslIntegrationTest < Minitest::Spec
     it "without Out() + inject variable, {pollute} is visible outside" do
       assert_dsl **options,
         expected: {
-          captured: ["{:pollute=>true, :http=>Object}", "{:http=>Object}"],
+          captured: [{:pollute=>true, :http=>Object}.inspect, {:http=>Object}.inspect],
           pollute: 1 # outside, we see the pollution.
         },
         target_ctx: {pollute: true, http: Object}
@@ -397,8 +397,8 @@ class DslIntegrationTest < Minitest::Spec
         expected: {
           # we only see {:my_captured}
           :my_captured=>[
-            "{:params=>{}, :pollute=>true}",
-            "{:params=>{}}"
+            {:params=>{}, :pollute=>true}.inspect,
+            {:params=>{}}.inspect
           ]
         }
     end
@@ -418,7 +418,7 @@ class DslIntegrationTest < Minitest::Spec
           # we only see {:my_captured}
           :my_captured=>[
             Trailblazer::Activity::VariableMapping::Context,
-            {:model=>Object, :captured=>["{:model=>Object}", "{:model=>Object}"], :outer_ctx=>{:model=>Object}}.inspect,
+            {:model=>Object, :captured=>[{:model=>Object}.inspect, {:model=>Object}.inspect], :outer_ctx=>{:model=>Object}}.inspect,
             {:model=>Object}.inspect, # outer_ctx
             {:model=>Object, :captured=>[{:model=>Object}.inspect, {:model=>Object}.inspect]}.inspect
           ]
