@@ -83,7 +83,7 @@ class FilterTest < Minitest::Spec
     it "Out(pass_outer_ctx: true)" do
       my_provider = ->(ctx, outer_ctx:, **kws) {
         {
-          my_slug: [CU.inspect(ctx), CU.inspect(outer_ctx), CU.inspect(kws)]
+          my_slug: [ctx.inspect, outer_ctx.inspect, kws.inspect]
         }
       }
 
@@ -106,9 +106,10 @@ class FilterTest < Minitest::Spec
         target_ctx: target_ctx,
         terminus: expected_aggregate = {
           :my_slug => [
-            "#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:bogus=>true, :slug=>\"0x666\"}, mutable={:outer_ctx=>{:params=>{:id=>1}}}, original_ctx=nil>", # ctx contains {:outer_ctx}, it's a new Context instance, not identical to {target_ctx}.
-            "{:params=>{:id=>1}}", # this is the outer_ctx.
-            "{:bogus=>true, :slug=>\"0x666\"}" # the remaining kws.
+            # "#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:bogus=>true, :slug=>\"0x666\"}, mutable={:outer_ctx=>{:params=>{:id=>1}}}, original_ctx=nil>", # ctx contains {:outer_ctx}, it's a new Context instance, not identical to {target_ctx}.
+            Trailblazer::Activity::VariableMapping::Context.new({:bogus=>true, :slug=>"0x666"}, {:outer_ctx=>{:params=>{:id=>1}}}).inspect,
+            {:params=>{:id=>1}}.inspect, # this is the outer_ctx.
+            {:bogus=>true, :slug=>"0x666"}.inspect # the remaining kws.
           ],
         }
 

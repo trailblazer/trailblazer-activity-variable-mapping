@@ -89,7 +89,7 @@ class TaskWrapPipesTest < Minitest::Spec
   end
 
   it "filters receive the {:target_ctx}" do
-    my_filter = ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+    my_filter = ->(ctx, **kws) { [ctx.inspect, kws.inspect] }
 
     array_of_filter_rows = [
       [:a,  node: filter(:a, &my_filter) ],
@@ -107,7 +107,7 @@ class TaskWrapPipesTest < Minitest::Spec
     assert_equal lib_ctx.keys, [:target_ctx]
     assert_equal lib_ctx[:target_ctx].class, Trailblazer::Activity::VariableMapping::Context
     assert_equal lib_ctx[:target_ctx].decompose, [
-      {:a=>["{:from_outside=>true}", "{:from_outside=>true}"], :b=>["{:from_outside=>true}", "{:from_outside=>true}"]}, {}
+      {:a=>[{:from_outside=>true}.inspect, {:from_outside=>true}.inspect], :b=>[{:from_outside=>true}.inspect, {:from_outside=>true}.inspect]}, {}
     ]
   end
 
@@ -152,7 +152,7 @@ class TaskWrapPipesTest < Minitest::Spec
     end
 
     it "filters receive the {:target_ctx}" do
-      my_filter = ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+      my_filter = ->(ctx, **kws) { [ctx.inspect, kws.inspect] }
 
       array_of_filter_rows = [
         [:a,  node: filter(:a, &my_filter) ],
@@ -176,8 +176,8 @@ class TaskWrapPipesTest < Minitest::Spec
       assert_equal lib_ctx.class, Hash
       assert_equal lib_ctx[:target_ctx], {
         x: 4, # original.
-        a: ["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}, original_ctx=nil>", "{:from_outside=>true, :mutable=>\"here\"}"],
-        :b=>["#<struct Trailblazer::Activity::VariableMapping::Context shadowed={:from_outside=>true}, mutable={:mutable=>\"here\"}, original_ctx=nil>", "{:from_outside=>true, :mutable=>\"here\"}"]
+        a: [_ctx = Trailblazer::Activity::VariableMapping::Context.new({:from_outside=>true}, {:mutable=>"here"}).inspect, {:from_outside=>true, :mutable=>"here"}.inspect],
+        :b=>[_ctx, {:from_outside=>true, :mutable=>"here"}.inspect]
       }
     end
 

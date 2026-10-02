@@ -11,7 +11,6 @@ class DslTest < Minitest::Spec
       exec_context: self,
 
       seq: [],
-      use_application_ctx:  false,
       terminus: Trailblazer::Activity::Right
 
     assert_equal lib_ctx[:adds_for_task_wrap].size, 2
@@ -24,7 +23,6 @@ class DslTest < Minitest::Spec
       adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
 
       seq: [],
-      use_application_ctx: false,
       terminus: Trailblazer::Activity::Left
 
     assert_equal lib_ctx[:adds_for_task_wrap], []
@@ -141,20 +139,20 @@ class DslIntegrationTest < Minitest::Spec
   describe "Inject => ->(*) { snippet }" do
     let(:options) do
       options = {
-        dsl.Inject(:http) => ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+        dsl.Inject(:http) => ->(ctx, **kws) { [ctx.inspect, kws.inspect] }
       }
     end
 
     it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
       assert_dsl **options,
         expected: {
-          captured: [ctx = "{:params=>{}, :http=>[\"{:params=>{}}\", \"{:params=>{}}\"]}", ctx] # {:http} is defaulted.
+          captured: [ctx = {:params=>{}, :http=>[{:params=>{}}.inspect, {:params=>{}}.inspect]}.inspect, ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
     end
 
     it "if present, the defaulting is skipped" do
       assert_dsl **options,
-        expected: {captured: [ctx = "{:params=>{}, :http=>Object}", ctx]},
+        expected: {captured: [ctx = {:params=>{}, :http=>Object}.inspect, ctx]},
         target_ctx: {params: {}, http: Object}
     end
   end
@@ -167,21 +165,21 @@ class DslIntegrationTest < Minitest::Spec
     end
 
     def my_inject_defaulter(ctx, **kws)
-      [CU.inspect(ctx), CU.inspect(kws)]
+      [ctx.inspect, kws.inspect]
     end
 
     it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
       assert_dsl **options,
         exec_context: self,
         expected: {
-          captured: [ctx = "{:params=>{}, :http=>[\"{:params=>{}}\", \"{:params=>{}}\"]}", ctx] # {:http} is defaulted.
+          captured: [ctx = {:params=>{}, :http=>[{:params=>{}}.inspect, {:params=>{}}.inspect]}.inspect, ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
     end
 
     it "if present, the defaulting is skipped" do
       assert_dsl **options,
         exec_context: self,
-        expected: {captured: [ctx = "{:params=>{}, :http=>Object}", ctx]},
+        expected: {captured: [ctx = {:params=>{}, :http=>Object}.inspect, ctx]},
         target_ctx: {params: {}, http: Object}
     end
   end
@@ -194,28 +192,28 @@ class DslIntegrationTest < Minitest::Spec
     end
 
     def my_inject_defaulter(ctx, **kws)
-      [CU.inspect(ctx), CU.inspect(kws)]
+      [ctx.inspect, kws.inspect]
     end
 
     it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
-      what_filter_sees = ["{:params=>{}}", "{:params=>{}}"]
+      what_filter_sees = [{:params=>{}}.inspect, {:params=>{}}.inspect]
 
       assert_dsl **options,
         exec_context: self,
         expected: {
-          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is defaulted.
+          captured: [ctx = {:params=>{}, :http=>what_filter_sees}.inspect, ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
     end
 
     it "if present, it is still defaulted as we're overriding" do
       # the override filter sees the "original" {:http} variable.
-      what_filter_sees = ["{:params=>{}, :http=>Object}", "{:params=>{}, :http=>Object}"]
+      what_filter_sees = [{:params=>{}, :http=>Object}.inspect, {:params=>{}, :http=>Object}.inspect]
 
       assert_dsl **options,
         exec_context: self,
         expected: {
           # the task sees what the override filter sees.
-          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is still defaulted.
+          captured: [ctx = {:params=>{}, :http=>what_filter_sees}.inspect, ctx] # {:http} is still defaulted.
         }, target_ctx: {params: {}, http: Object}
     end
   end
@@ -223,29 +221,29 @@ class DslIntegrationTest < Minitest::Spec
   describe "Inject(:variable, override: true) => ->(*) { snippet }" do
     let(:options) do
       options = {
-        dsl.Inject(:http, override: true) => ->(ctx, **kws) { [CU.inspect(ctx), CU.inspect(kws)] }
+        dsl.Inject(:http, override: true) => ->(ctx, **kws) { [ctx.inspect, kws.inspect] }
       }
     end
 
     it "if variable is absent, it defaults. the block can see the {ctx} + kws" do
-      what_filter_sees = ["{:params=>{}}", "{:params=>{}}"]
+      what_filter_sees = [{:params=>{}}.inspect, {:params=>{}}.inspect]
 
       assert_dsl **options,
         exec_context: self,
         expected: {
-          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is defaulted.
+          captured: [ctx = {:params=>{}, :http=>what_filter_sees}.inspect, ctx] # {:http} is defaulted.
         }, target_ctx: {params: {}}
     end
 
     it "if present, it is still defaulted as we're overriding" do
       # the override filter sees the "original" {:http} variable.
-      what_filter_sees = ["{:params=>{}, :http=>Object}", "{:params=>{}, :http=>Object}"]
+      what_filter_sees = [{:params=>{}, :http=>Object}.inspect, {:params=>{}, :http=>Object}.inspect]
 
       assert_dsl **options,
         exec_context: self,
         expected: {
           # the task sees what the override filter sees.
-          captured: [ctx = "{:params=>{}, :http=>#{what_filter_sees}}", ctx] # {:http} is still defaulted.
+          captured: [ctx = {:params=>{}, :http=>what_filter_sees}.inspect, ctx] # {:http} is still defaulted.
         }, target_ctx: {params: {}, http: Object}
     end
   end
@@ -255,17 +253,17 @@ class DslIntegrationTest < Minitest::Spec
     let(:options) { {dsl.In() => [:http]} }
 
     it "with empty ctx, :http will be set to {nil}" do
-      assert_dsl **options, expected: {captured: ["{:http=>nil}", "{:http=>nil}"]}
+      assert_dsl **options, expected: {captured: [{:http=>nil}.inspect, {:http=>nil}.inspect]}
     end
 
     it "In() passes {:http}" do
-      assert_dsl **options, expected: {captured: ["{:http=>Object}", "{:http=>Object}"]},
+      assert_dsl **options, expected: {captured: [{:http=>Object}.inspect, {:http=>Object}.inspect]},
         target_ctx: {http: Object}
     end
 
     it "In() variables don't bleed into the following step / the outside" do
       assert_dsl **options,
-        expected: {captured: ["{:http=>nil}", "{:http=>nil}"]}, # we don't see anything but {:captured} on the outside.
+        expected: {captured: [{:http=>nil}.inspect, {:http=>nil}.inspect]}, # we don't see anything but {:captured} on the outside.
         target_ctx: {}
     end
   end
@@ -275,13 +273,13 @@ class DslIntegrationTest < Minitest::Spec
       # raise "after that, implement Inject() :override"
 
       options = {
-        dsl.In() => ->(ctx, **kws) { {a: [CU.inspect(ctx), CU.inspect(kws)]} }
+        dsl.In() => ->(ctx, **kws) { {a: [ctx.inspect, kws.inspect]} }
       }
 
-      what_filter_a_sees = ["{:from_outside=>1}", "{:from_outside=>1}"]
+      what_filter_a_sees = [{:from_outside=>1}.inspect, {:from_outside=>1}.inspect]
 
       assert_dsl **options,
-        expected: {captured: ["{:a=>#{what_filter_a_sees}}", "{:a=>#{what_filter_a_sees}}"]},
+        expected: {captured: [{:a=>what_filter_a_sees}.inspect, {:a=>what_filter_a_sees}.inspect]},
         target_ctx: {from_outside: 1}
     end
   end
@@ -293,13 +291,13 @@ class DslIntegrationTest < Minitest::Spec
       }
 
       def my_input(ctx, **kws)
-        {a: [CU.inspect(ctx), CU.inspect(kws)]}
+        {a: [ctx.inspect, kws.inspect]}
       end
 
-      what_filter_a_sees = ["{:from_outside=>1}", "{:from_outside=>1}"]
+      what_filter_a_sees = [{:from_outside=>1}.inspect, {:from_outside=>1}.inspect]
 
       assert_dsl **options,
-        expected: {captured: ["{:a=>#{what_filter_a_sees}}", "{:a=>#{what_filter_a_sees}}"]},
+        expected: {captured: [{:a=>what_filter_a_sees}.inspect, {:a=>what_filter_a_sees}.inspect]},
         target_ctx: {from_outside: 1}
     end
   end
@@ -315,13 +313,13 @@ class DslIntegrationTest < Minitest::Spec
 
       assert_dsl **options,
         target_ctx: {from_outside: 1, params: {}},
-        expected: {captured: [ctx = "{:my_params=>{}, :my_user=>nil}", ctx]}
+        expected: {captured: [ctx = {:my_params=>{}, :my_user=>nil}.inspect, ctx]}
     end
   end
 
   describe "Out() => ->(*) { snippet }" do
     def my_output(ctx, **kws)
-      {my_out: [ctx.class, CU.inspect(ctx.to_h), CU.inspect(kws)]}
+      {my_out: [ctx.class, ctx.to_h.inspect, kws.inspect]}
     end
 
     it "without In() or Inject(), we see all outside variables" do
@@ -329,7 +327,7 @@ class DslIntegrationTest < Minitest::Spec
         dsl.Out() => method(:my_output),
       }
 
-      what_step_sees = "{:params=>{}, :model=>Object}"
+      what_step_sees = {:params=>{}, :model=>Object}.inspect
 
       assert_dsl **options,
         # exec_context: self,
@@ -338,7 +336,7 @@ class DslIntegrationTest < Minitest::Spec
           :my_out=>[
             Trailblazer::Activity::VariableMapping::Context, # in the Out() filter, we see a Context instance from In().
             # the step sees all variabes from outside (:captured).
-            ctx = "{:params=>{}, :model=>Object, :captured=>[#{what_step_sees.inspect}, #{what_step_sees.inspect}]}",
+            ctx = {:params=>{}, :model=>Object, :captured=>[what_step_sees, what_step_sees]}.inspect,
             ctx
           ]
         }
@@ -349,7 +347,7 @@ class DslIntegrationTest < Minitest::Spec
         dsl.Out() => :my_output,
       }
 
-      what_step_sees = "{:params=>{}, :model=>Object}"
+      what_step_sees = {:params=>{}, :model=>Object}.inspect
 
       assert_dsl **options,
         # exec_context: self,
@@ -358,7 +356,7 @@ class DslIntegrationTest < Minitest::Spec
           :my_out=>[
             Trailblazer::Activity::VariableMapping::Context, # in the Out() filter, we see a Context instance from In().
             # the step sees all variabes from outside (:captured).
-            ctx = "{:params=>{}, :model=>Object, :captured=>[#{what_step_sees.inspect}, #{what_step_sees.inspect}]}",
+            ctx = {:params=>{}, :model=>Object, :captured=>[what_step_sees, what_step_sees]}.inspect,
             ctx
           ]
         }
@@ -374,8 +372,8 @@ class DslIntegrationTest < Minitest::Spec
         expected: {
           # we only see {:captured}
           :captured=>[
-            "{:params=>{}, :pollute=>true}",
-            "{:params=>{}}"
+            {:params=>{}, :pollute=>true}.inspect,
+            {:params=>{}}.inspect
           ]
         }
 
@@ -409,7 +407,7 @@ class DslIntegrationTest < Minitest::Spec
       options = {
         dsl.Out(pass_outer_ctx: true) => ->(ctx, outer_ctx:, **kws) {
           {
-            my_captured: [ctx.class, CU.inspect(ctx.to_h), CU.inspect(outer_ctx), CU.inspect(kws)]
+            my_captured: [ctx.class, ctx.to_h.inspect, outer_ctx.inspect, kws.inspect]
           }
         }
       }
@@ -420,9 +418,9 @@ class DslIntegrationTest < Minitest::Spec
           # we only see {:my_captured}
           :my_captured=>[
             Trailblazer::Activity::VariableMapping::Context,
-            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"], :outer_ctx=>{:model=>Object}}",
-            "{:model=>Object}", # outer_ctx
-            "{:model=>Object, :captured=>[\"{:model=>Object}\", \"{:model=>Object}\"]}"
+            {:model=>Object, :captured=>["{:model=>Object}", "{:model=>Object}"], :outer_ctx=>{:model=>Object}}.inspect,
+            {:model=>Object}.inspect, # outer_ctx
+            {:model=>Object, :captured=>[{:model=>Object}.inspect, {:model=>Object}.inspect]}.inspect
           ]
         }
     end
@@ -481,7 +479,7 @@ class DslIntegrationTest < Minitest::Spec
         dsl.In() => ->(*) { {a: 2} },
       }
 
-      assert_dsl **options, expected: {captured: ["{:a=>2}", "{:a=>2}"]}
+      assert_dsl **options, expected: {captured: [{:a=>2}.inspect, {:a=>2}.inspect]}
     end
 
     it "two Inject(), the latter one wins" do
@@ -490,7 +488,7 @@ class DslIntegrationTest < Minitest::Spec
         dsl.Inject(:a) => ->(*) { 2 },
       }
 
-      assert_dsl **options, expected: {captured: ["{:a=>2}", "{:a=>2}"]}
+      assert_dsl **options, expected: {captured: [{:a=>2}.inspect, {:a=>2}.inspect]}
     end
 
     it "two Out(), the latter one wins" do
@@ -511,11 +509,11 @@ class DslIntegrationTest < Minitest::Spec
 
       assert_dsl **options,
         target_ctx: {current_user: Object, params: {}},
-        expected: {captured: [ctx = "{:params=>{}, :current_user=>Object}", ctx]}
+        expected: {captured: [ctx = {:params=>{}, :current_user=>Object}.inspect, ctx]}
 
       assert_dsl **options,
         target_ctx: {current_user: Object, params: {}, http: Module},
-        expected: {captured: [ctx = "{:http=>Module, :params=>{}, :current_user=>Object}", ctx]}
+        expected: {captured: [ctx = {:http=>Module, :params=>{}, :current_user=>Object}.inspect, ctx]}
     end
 
   end
@@ -524,7 +522,7 @@ class DslIntegrationTest < Minitest::Spec
 
 
   def my_capture_step(ctx, pollute: false, **kws)
-    ctx[:captured] = [CU.inspect(ctx.to_h), CU.inspect(kws)]
+    ctx[:captured] = [ctx.to_h.inspect, kws.inspect]
 
     ctx[:pollute] = 1 if pollute
     true
