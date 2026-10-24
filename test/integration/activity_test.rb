@@ -7,14 +7,14 @@ require "trailblazer/activity/dsl"
   Trailblazer::Activity::Railway,
   # Trailblazer::Activity::FastTrack
 ].each do |topology|
-  _, _, builder, helper_forwarder = Trailblazer::Activity::DSL::Topology.build(
+  _, _, builder, helpers_module = Trailblazer::Activity::DSL::Topology.build(
     builder: topology.config.builder,
     default_options: {},
     **Trailblazer::Activity::VariableMapping::TOPOLOGY_BUILD_OPTIONS # :helpers and :adds
   )
 
   topology.config.builder = builder
-  topology.extend helper_forwarder
+  topology.include helpers_module
 end
 
 # Test I/O in {Topology}.
