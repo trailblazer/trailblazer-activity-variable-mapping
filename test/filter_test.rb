@@ -284,3 +284,30 @@ class FilterTest < Minitest::Spec
     end
   end
 end
+
+class CustomFilterTest < Minitest::Spec
+  it "allows building custom filters that can access {lib_ctx} easily (which is not the case, currently)" do
+    provider_filter = ->(lib_ctx, flow_options, signal, index:, **) do
+      return lib_ctx, flow_options, index
+    end
+
+    provider_node = Trailblazer::Circuit::Node[provider_filter, Trailblazer::Circuit::Task::Adapter::LibInterface]
+
+    steps = Trailblazer::Activity::VariableMapping::Runtime::Filter.rows_for_build(provider_node)
+    my_circuit =          Trailblazer::Circuit::Builder.Circuit(*steps)
+
+    # wrap
+    my_circuit = Trailblazer::Circuit::Adds.(my_circuit, Trailblazer::Activity::VariableMapping::Runtime::Filter::Build::WRAP_VALUE_WITH_HASH)
+    my_wrap_options = {write_name: :index}
+
+      filter = Trailblazer::Activity::VariableMapping::Runtime::Filter.build_node(
+        circuit: my_circuit,
+        id: :add_index,
+        **my_wrap_options
+      )
+      require "trailblazer/developer"
+Trailblazer::Developer.puts filter.task
+
+    assert_run filter, node: true, seq: [], index: 1, aggregate: {}, terminus: {index: 1}
+  end
+end
