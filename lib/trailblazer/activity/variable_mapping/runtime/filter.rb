@@ -8,19 +8,25 @@ module Trailblazer
           def self.build_node(id:, circuit: nil, **options)
             circuit = build_circuit(**options) unless circuit # FIXME: do we need the injection of {:circuit}?
 
+            circuit = yield(circuit) if block_given? # FIXME: this is where Wrapped hooks in, this should be another step in the build pipeline
+
             options_for_filter = options.slice(*members) # extract :read_name, :write_name.
 
             create_node_for(circuit, id: id, **options_for_filter)
           end
 
-          def self.build_circuit(args_for_step_build:, **options)
+          def self.build_provider_node(args_for_step_build:, **)
             provider_arg, provider_options = args_for_step_build
 
-            provider_node = Activity::Step.build(
+            return Activity::Step.build(
               provider_arg,
               **provider_options, # e.g. {exec_context: Filter.new}
               binary: false
             )
+          end
+
+          def self.build_circuit(provider_node: nil, **options)
+            provider_node = build_provider_node(**options) unless provider_node # FIXME: we cannot use defaulting in kwargs.
 
             steps = rows_for_build(provider_node)
 
@@ -47,13 +53,12 @@ module Trailblazer
           end
 
 # FIXME: are we using this? or do we do Adds?
-          class Wrapped < Filter
+# FIXME: remove this if we use Adds like in Override
+          class Wrapped# < Filter
             def self.build_node(**options)
-              circuit = Filter.build_circuit(**options)
-
-              circuit = Circuit::Adds.(circuit, Build::WRAP_VALUE_WITH_HASH) # DISCUSS: extract this, so we could use it to insert this step.
-
-              super(**options, circuit: circuit)
+              Filter.build_node(**options) do |circuit|
+                _circuit = Circuit::Adds.(circuit, Build::WRAP_VALUE_WITH_HASH) # DISCUSS: extract this, so we could use it to insert this step.
+              end
             end
           end
 
