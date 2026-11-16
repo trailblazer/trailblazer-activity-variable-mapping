@@ -73,7 +73,7 @@ class ComposableTest < Minitest::Spec
       add_default_ctx: true
     )
 
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: [],
+    lib_ctx, flow_options = assert_run node: input_node, seq: [],
       use_application_ctx: false, # FIXME: remove.
       target_ctx: original_ctx = {slug: "0x666", params: {id: 1}, seq: []},
       signal: Object,
@@ -138,7 +138,7 @@ class ComposableTest < Minitest::Spec
     )
     # pp output_node
 
-    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+    lib_ctx, flow_options = assert_run node: output_node, seq: nil,
         original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
         flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
 
@@ -170,7 +170,7 @@ class ComposableTest < Minitest::Spec
       add_default_ctx: false
     )
 
-    lib_ctx, flow_options = assert_run output_node, seq: nil, node: true,
+    lib_ctx, flow_options = assert_run node: output_node, seq: nil,
         original_application_ctx: {params: {id: 1}}, # this is what the Out filter sees as the "outer_ctx".
         flow_options: {application_ctx: Trailblazer::Activity::VariableMapping::Context.new({from_outside: Object}, {bogus: true, slug: "0x666"})} # this is the ctx produced by the call_task.
 
@@ -222,7 +222,7 @@ class ComposableTest < Minitest::Spec
   end
 
   def assert_input(input_node, original_ctx, expected_shadowed, terminus: nil)
-    lib_ctx, flow_options = assert_run input_node, node: true, seq: nil,
+    lib_ctx, flow_options = assert_run node: input_node, seq: nil,
       flow_options: {application_ctx: original_ctx},
       terminus: terminus
 
@@ -234,7 +234,7 @@ class ComposableTest < Minitest::Spec
   def assert_output(node, original_application_ctx:, mutable_ctx:, expected_application_ctx:)
     original_application_ctx.freeze
 
-    lib_ctx, flow_options = assert_run node, seq: nil, node: true,
+    lib_ctx, flow_options = assert_run node: node, seq: nil,
       original_application_ctx: original_application_ctx, # this is what the Out filter sees as the "outer_ctx".
       flow_options: {
       application_ctx: Trailblazer::Activity::VariableMapping::Context.new(
