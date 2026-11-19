@@ -26,7 +26,7 @@ class DslTest < Minitest::Spec
       terminus: Trailblazer::Activity::Left
 
     assert_equal lib_ctx[:adds_for_task_wrap], []
-    assert_equal flow_options, {}
+    assert_equal flow_options.to_h, {}
     # assert_equal signal, Trailblazer::Activity::Left
   end
 end
@@ -540,13 +540,14 @@ class DslIntegrationTest < Minitest::Spec
 
   # DISCUSS: admittedly, building a "fake normalizer" here is a bit cryptic.
   def build_adds_from_dsl(vm_options)
-    lib_ctx, _ = assert_run node: Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node,
-      **vm_options,
-      exec_context: self, # DISCUSS: is that the right place?
-      adds_for_task_wrap: [], # this is part of the DSL specification/convention/whatever.
-
-      seq: [],
-      terminus: Trailblazer::Activity::Right
+    Trailblazer::Activity::VariableMapping::DSL::Normalizer::Node.(
+      vm_options.merge(
+        exec_context: self,
+        adds_for_task_wrap: []
+      ),
+      Trailblazer::Circuit::Node::Runner.new,
+      nil
+    )
   end
 
   def assert_dsl(target_ctx: {}, expected:, **options)

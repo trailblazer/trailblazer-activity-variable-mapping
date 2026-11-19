@@ -37,7 +37,7 @@ module Trailblazer
             # DISCUSS: In theory, we'd need different Filter subclasses for different filter types, eg a user provider doesn't need any {write_name}.
             filter_exec_context = Filter[**options_for_filter].freeze # NOTE: this is the key to understanding how configuration state is transported in this little pipeline.
 
-            return Circuit::Node::MergeToCircuitOptions[circuit, Circuit::Processor, merge_to_circuit_options: {exec_context: filter_exec_context}]
+            return Circuit::Builder.Node(circuit, Circuit::Processor, exec_context: filter_exec_context, copy_to_outer_ctx: [:aggregate])
           end
 
           # FIXME: can we reuse nodes?
@@ -52,7 +52,6 @@ module Trailblazer
             WRAP_VALUE_WITH_HASH = [:wrap_value_with_hash, Circuit::Node[:wrap_value_with_hash, Circuit::Task::Adapter::LibInterface::InstanceMethod], :after, :invoke_provider]
           end
 
-# FIXME: are we using this? or do we do Adds?
 # FIXME: remove this if we use Adds like in Override
           class Wrapped# < Filter
             def self.build_node(**options)
@@ -94,13 +93,13 @@ module Trailblazer
 
           class Conditioned < Filter
             def self.build_circuit(**options)
-              super(**options, args_for_step_build: [:read_variable_from_application_ctx, {}]) # the provider is {#read_variable_from_application_ctx}.
+              super(**options, args_for_step_build: [:read_variable_from_target_ctx, {dynamic_exec_context: true}]) # the provider is {#read_variable_from_target_ctx}.
             end
 
             # FIXME: we can reuse most nodes?
             def self.rows_for_build(provider_node)
               [
-                [:variable_present_in_application_ctx?, :variable_present_in_application_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
+                [:variable_present_in_target_ctx?, :variable_present_in_target_ctx?, Circuit::Task::Adapter::LibInterface::InstanceMethod,
                   connections: Circuit::Resolver::Conditional.new([Left], nil, :invoke_provider)], # Left means terminate.
                 [:invoke_provider, node: provider_node, # extract a value
                   connections: Circuit::Resolver::Fixed.new(:wrap_value_with_hash)],
@@ -123,12 +122,12 @@ module Trailblazer
 
               default_provider, default_provider_options = args_for_default_provider
 
-              default_provider_node = Activity::Step.build(default_provider, **default_provider_options, binary: false) # FIXME: we don't want signal handling here at all.
+              default_provider_node = Activity::Step.build(default_provider, **default_provider_options, binary: false)
 
               adds_instruction = [
                 :invoke_default_provider,
                 default_provider_node,
-                :after, :variable_present_in_application_ctx?,
+                :after, :variable_present_in_target_ctx?,
                 inbound_signal: Left,
                 resolver: Circuit::Resolver::Fixed.new(:wrap_value_with_hash),
               ]
@@ -162,12 +161,12 @@ module Trailblazer
           # DISCUSS: should we keep the following methods in a subclass of {Filter}?
 
           # Grab @variable_name from {ctx}.
-          # Note that this is called with the StepInterface, since we want to read from application_ctx.
-          def read_variable_from_application_ctx(ctx, **)
+          # Note that this is called with the StepInterface, since we want to read from target_ctx.
+          def read_variable_from_target_ctx(ctx, **)
             return ctx[read_name]
           end
 
-          def variable_present_in_application_ctx?(lib_ctx, flow_options, signal, target_ctx:, **)
+          def variable_present_in_target_ctx?(lib_ctx, flow_options, signal, target_ctx:, **) # FIXME: rename to target_ctx
             signal = target_ctx.key?(read_name) ? signal : Activity::Left
 
             return lib_ctx, flow_options, signal

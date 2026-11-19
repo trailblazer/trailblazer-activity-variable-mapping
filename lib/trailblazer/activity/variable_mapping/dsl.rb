@@ -92,7 +92,7 @@ module Trailblazer
           def build_filter_node_row_for_mapping(read_name:, write_name:, id: :"in.#{read_name} > #{write_name}")
             node = Runtime::Filter.build_node(
               id:                 id,
-              args_for_step_build:  [:read_variable_from_application_ctx, {}], # Filter::Runtime#read_variable_from_application_ctx
+              args_for_step_build:  [:read_variable_from_target_ctx, {dynamic_exec_context: true}],
               read_name:          read_name,
               write_name:         write_name,
             )

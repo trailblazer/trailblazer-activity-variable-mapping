@@ -3,24 +3,23 @@ require "test_helper"
 class FilterTest < Minitest::Spec
   let(:filter_lib_ctx_options) { {aggregate: {}} }
 
-  StepInterface = Trailblazer::Circuit::Task::Adapter::StepInterface
-
   Filter = Trailblazer::Activity::VariableMapping::Runtime::Filter
 
-  it "read a variable from the {application_ctx}, like In() => {:slug => :my_slug}" do
+  it "read a variable from the {target_ctx}, like In() => {:slug => :my_slug}" do
     my_node = Filter::Wrapped.build_node(
       id: nil,
-      args_for_step_build: [:read_variable_from_application_ctx, {}],
+      args_for_step_build: [:read_variable_from_target_ctx, {dynamic_exec_context: true}],
       read_name: :slug,
       write_name: :my_slug,
     )
+
 
     lib_ctx, flow_options, signal = assert_run node: my_node, seq: nil, target_ctx: original_target_ctx = {slug: "generator-1"}.freeze,
       **filter_lib_ctx_options,
       terminus: {:my_slug=>"generator-1"} # DISCUSS: value-on-signal
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"generator-1"}, target_ctx: original_target_ctx}
-    assert_equal flow_options, {}
+    assert_equal flow_options.to_h, {}
   end
 
   it "invoke a callable, wrap its value with a hash" do
@@ -37,7 +36,7 @@ class FilterTest < Minitest::Spec
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
-    assert_equal flow_options, {}
+    assert_equal flow_options.to_h, {}
   end
 
   it "invoke an {:instance_method}, wrap the value" do
@@ -60,7 +59,7 @@ class FilterTest < Minitest::Spec
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
-    assert_equal flow_options, {}
+    assert_equal flow_options.to_h, {}
   end
 
   it "invoke a callable, no wrapping" do
@@ -76,7 +75,7 @@ class FilterTest < Minitest::Spec
       terminus: {:my_slug=>"GENERATOR-1"}
 
     assert_equal lib_ctx, {aggregate: {:my_slug=>"GENERATOR-1"}, target_ctx: original_target_ctx}
-    assert_equal flow_options, {}
+    assert_equal flow_options.to_h, {}
   end
 
   describe "Out" do
@@ -117,7 +116,7 @@ class FilterTest < Minitest::Spec
         aggregate: expected_aggregate,
         target_ctx: target_ctx # Note that we don't see {:outer_ctx} here. that's because we Scope the MergeToCircuitOptions node (WIP).
       }
-      assert_equal flow_options, {}
+      assert_equal flow_options.to_h, {}
     end
   end
 
@@ -135,7 +134,7 @@ class FilterTest < Minitest::Spec
         signal: Object
 
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}, target_ctx: original_target_ctx} # we could read {:slug}.
-      assert_equal flow_options, {}
+      assert_equal flow_options.to_h, {}
     end
 
     it "works even if the incoming signal is something other than {nil}" do
@@ -150,7 +149,7 @@ class FilterTest < Minitest::Spec
         terminus: {:slug=>"generator-1"} # DISCUSS: scoping?
 
       assert_equal lib_ctx, {aggregate: {:slug=>"generator-1"}, target_ctx: original_target_ctx} # we could read {:slug}.
-      assert_equal flow_options, {}
+      assert_equal flow_options.to_h, {}
     end
 
     it "Conditioned always uses the same circuit" do
@@ -192,7 +191,7 @@ class FilterTest < Minitest::Spec
 
       original_target_ctx = {global_id: 1}.freeze
 
-      # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
+      # raise "how do we get variable_present_in_target_ctx?'s Left to point to the defaulting step?"
       lib_ctx, flow_options = assert_run node: my_node, seq: nil,
         target_ctx: original_target_ctx,
         **filter_lib_ctx_options,
@@ -245,7 +244,7 @@ class FilterTest < Minitest::Spec
 
         original_target_ctx = {global_id: 1}.freeze
 
-        # raise "how do we get variable_present_in_application_ctx?'s Left to point to the defaulting step?"
+        # raise "how do we get variable_present_in_target_ctx?'s Left to point to the defaulting step?"
         lib_ctx, flow_options = assert_run node: my_node, seq: nil,
           target_ctx: original_target_ctx,
           **filter_lib_ctx_options,
