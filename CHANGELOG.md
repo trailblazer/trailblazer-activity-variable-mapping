@@ -1,5 +1,3 @@
-## [Unreleased]
+## [3.0.0]
 
-## [0.1.0] - 2026-02-15
-
-- Initial release
+* Extracted the variable mapping logic from `trailblazer-activity-dsl-linear` to this new gem.
