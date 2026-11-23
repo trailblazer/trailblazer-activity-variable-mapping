@@ -70,7 +70,8 @@ module Trailblazer
 
                 node = Circuit::Node::Patch.(
                   node,
-                  [:invoke_provider],
+                  # [:invoke_provider],
+                  [], # we don't need to dive anymore since the Out provider is never a {binary: true}.
                   adds: [
                     [
                       :merge_outer_ctx,
