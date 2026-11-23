@@ -20,3 +20,4 @@ gem "trailblazer-activity-dsl", github: "trailblazer/trailblazer-activity-dsl"
 
 # gem "benchmark-ips"
 # gem "benchmark-memory"
+gem "trailblazer-developer", github: "trailblazer/trailblazer-developer"
